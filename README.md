@@ -1,6 +1,8 @@
 **SimpleTodo** est un petit gestionnaire de liste de tâches simple avec onglet.
 Il est écrit en Python3 et dispose d'une interface GTK3.
 
+![https://code.eveha.fr/sebastien.poher/simpleTodo/raw/dev/capture.png](https://code.eveha.fr/sebastien.poher/simpleTodo/raw/dev/capture.png)
+
 **Installation :**
 
 Pour une installation rapide et basique, il suffit de récupérer le fichier *simpletodo* et de lancer le logiciel avec la commande :
