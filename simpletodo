@@ -7,6 +7,7 @@ import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
 
+
 class HeaderBarWindow(Gtk.Window):
     """ Initialize window with HeaderBar """
 
@@ -14,7 +15,8 @@ class HeaderBarWindow(Gtk.Window):
         Gtk.Window.__init__(self, title="Simple Todo")
         self.set_border_width(10)
         self.set_default_size(650, 380)
-        #self.set_icon_from_file("/home/sogal/Projets/simpletodo/simpletodo.png")
+        # self.set_icon_from_file(
+        # "/home/sogal/Projets/simpletodo/simpletodo.png")
         self.set_icon_name("gtg")
 
         headerb = Gtk.HeaderBar()
@@ -22,7 +24,7 @@ class HeaderBarWindow(Gtk.Window):
         headerb.props.title = "Simple Todo"
         self.set_titlebar(headerb)
 
-        # Ajout de box destinées à recevoir les boutons de gestion des projets :
+        # Ajout de box destinées recevant les boutons de gestion des projets :
         navbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
         Gtk.StyleContext.add_class(navbox.get_style_context(), "linked")
 
@@ -127,8 +129,8 @@ class HeaderBarWindow(Gtk.Window):
 
     def on_rename_project(self, text):
         """Change page label (rename project)"""
-        os.rename(share_dir+"/"+self.get_project_name(),
-                  share_dir+"/"+text)
+        os.rename(share_dir + "/" + self.get_project_name(),
+                  share_dir + "/" + text)
         self.tnotebook.set_tab_label_text(self.get_current_child(), text)
         self.new_name_input.close()
 
@@ -138,7 +140,7 @@ class HeaderBarWindow(Gtk.Window):
         response = dialog.run()
         if response == Gtk.ResponseType.OK:
             # Supprimer le fichier contenant le projet :
-            os.remove(share_dir+"/"+self.get_project_name())
+            os.remove(share_dir + "/" + self.get_project_name())
             self.tnotebook.remove_page(self.tnotebook.get_current_page())
             if len(os.listdir(share_dir)) == 0:
                 self.tnotebook.page1 = ToDoListBox()
@@ -170,7 +172,7 @@ class HeaderBarWindow(Gtk.Window):
             self.get_current_child().on_save_list(project_name)
         elif widget.get_label() == "Renommer projet":
             self.new_name_input = InputWin("Nouveau nom de projet",
-            self.on_rename_project)
+                                           self.on_rename_project)
         elif widget.get_label() == "Supprimer":
             self.get_current_child().on_row_delete()
         elif widget.get_label() == "Quitter":
@@ -242,7 +244,7 @@ class ToDoListBox(Gtk.Box):
         renderer_check = Gtk.CellRendererToggle()
         renderer_check.connect("toggled", self.on_task_check)
 
-        # Instanciation d'une colonne contenant les cellules de cases à cocher :
+        # Colonne contenant les cellules de cases à cocher :
         column_check = Gtk.TreeViewColumn("Finie", renderer_check,
                                           active=0)
         # Ajout de cette colonne à la vue "tdview" créée précédemment :
@@ -267,8 +269,8 @@ class ToDoListBox(Gtk.Box):
         self.sel = self.tdview.get_selection()
         self.sel.set_mode(Gtk.SelectionMode.NONE)
 
-        # Instanciation d'un conteneur (fenêtre) scrollable 
-        #qui recevra la vue "tdview" :
+        # Instanciation d'un conteneur (fenêtre) scrollable
+        # qui recevra la vue "tdview" :
         self.scrollable_treelist = Gtk.ScrolledWindow()
         self.scrollable_treelist.set_vexpand(True)
         self.scrollable_treelist.set_border_width(5)
@@ -283,19 +285,20 @@ class ToDoListBox(Gtk.Box):
         """On app launch, load project file and format entries"""
         if not os.path.exists(share_dir):
             os.makedirs(share_dir, mode=0o775)
-        if not os.path.exists(share_dir+"/"+project_name):
+        if not os.path.exists(share_dir + "/" + project_name):
             # S'il n'existe pas, un dialogue propose sa création
             self.tdfile_creation_dialog()
         # Si le fichier est vide (taille == 0 ), ne pas chercher à le charger :
-        elif os.path.getsize(share_dir+"/"+project_name) == 0:
+        elif os.path.getsize(share_dir + "/" + project_name) == 0:
             pass
         else:
-            # S'il existe, l'ouvrir et ajouter ses entrées à self.tdlist_store :
-            with open(share_dir+"/"+project_name, 'r') as file_in:
+            # S'il existe, l'ouvrir et ajouter ses entrées à self.tdlist_store
+            # :
+            with open(share_dir + "/" + project_name, 'r') as file_in:
                 for i, l in enumerate(file_in):
                     pass
             file_len = i + 1
-            with open(share_dir+"/"+project_name, 'r') as file_in:
+            with open(share_dir + "/" + project_name, 'r') as file_in:
                 c = 0
                 while c < file_len:
                     entry = file_in.readline().split()
@@ -327,10 +330,11 @@ class ToDoListBox(Gtk.Box):
 
     def on_save_list(self, project_name):
         """Save list in a project named file"""
-        file_out = open(share_dir+"/"+project_name, 'w')
+        file_out = open(share_dir + "/" + project_name, 'w')
         for row in self.tdlist_store:
-            # Ajout d'un retour à la ligne pour obtenir un fichier ligne à ligne
-            file_out.write(str(row[0])+", "+str(''.join(row[1])) + "\n")
+            # Ajout d'un retour à la ligne pour obtenir un fichier ligne à
+            # ligne
+            file_out.write(str(row[0]) + ", " + str(''.join(row[1])) + "\n")
         file_out.close()
 
     def on_row_delete(self):
