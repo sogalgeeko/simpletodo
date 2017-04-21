@@ -1,0 +1,18 @@
+[Desktop Entry]
+Name=SimpleTodo
+GenericName=A simple tabbed todo list app
+GenericName[fr]=Une application de liste de tâches simple avec onglet
+X-GNOME-FullName=SimpleTodo
+X-GNOME-FullName[fr]=Gestion des tâches SimpleTodo
+Comment=Simply manage your tasks by project
+Comment[fr]=Gérer simplement vos tâches par projet
+Keywords=Tasks;Utility
+Keywords[fr]=Tâches;Utilitaire
+Categories=GNOME;GTK;Utility
+Exec=/usr/bin/python3.4 /home/sogal/Projets/simpletodo/notebook.py
+Icon=/home/sogal/Projets/simpletodo/simpletodo.png
+MimeType=image/jpeg;image/png;
+StartupNotify=true
+Terminal=false
+Type=Application
+Name[fr_FR]=Simpletodo
