@@ -55,6 +55,23 @@ class HeaderBarWindow(Gtk.Window):
         deltab.connect("clicked", self.on_del_project)
         prjbox.add(deltab)
 
+        # TODO : CLEAN THIS VERY VERY SHITTY MENU TEST !!!
+        prj_menu = Gtk.MenuButton()
+        prj_menu_img = Gtk.Image.new_from_icon_name("open-menu-symbolic",
+                                                Gtk.IconSize.BUTTON)
+        prj_menu.add(prj_menu_img)
+        menu_entries = Gtk.Menu()
+        i1 = Gtk.MenuItem("Renommer...")
+        i1.connect("activate", self.rename_prj_dialog)
+        i2 = Gtk.MenuItem("Enregistrer")
+        i2.connect("activate", self.on_save_notebook)
+        menu_entries.append(i1)
+        menu_entries.append(i2)
+        menu_entries.show_all()
+        prj_menu.set_popup(menu_entries)
+        prj_menu.show_all()
+        prjbox.add(prj_menu)
+
         headerb.pack_start(navbox)
         headerb.pack_end(prjbox)
 
@@ -75,9 +92,7 @@ class HeaderBarWindow(Gtk.Window):
 
         # Création séquentielle des boutons :
         self.buttons = list()
-        for action in ["Enregistrer",
-                       "Renommer projet",
-                       "Nouvelle tâche",
+        for action in ["Nouvelle tâche",
                        "Supprimer",
                        "Quitter"]:
             button = Gtk.Button(action)
@@ -85,7 +100,8 @@ class HeaderBarWindow(Gtk.Window):
             # Connexion des boutons à la fonc. de sélection des actions
             button.connect("clicked", self.on_sel_action)
         # ... sauf "Supprimer" (activé par le mode "Édition")
-        self.buttons[3].disconnect_by_func(self.on_sel_action)
+        self.buttons[1].disconnect_by_func(self.on_sel_action)
+        self.buttons[1].set_sensitive(False)
 
         # Instanciation du label du switch du mode "Édition" :
         self.switch_label = Gtk.Label("Mode édition")
@@ -101,6 +117,20 @@ class HeaderBarWindow(Gtk.Window):
         for i, button in enumerate(self.buttons):
             # Ajout successif des autres boutons à droite du 1er
             self.buttons_box.pack_start(self.buttons[i], True, False, 0)
+
+        self.task_up = Gtk.Button()
+        img = Gtk.Image.new_from_icon_name("go-up-symbolic",
+                Gtk.IconSize.BUTTON)
+        self.task_up.set_image(img)
+        self.task_up.connect("clicked", self.on_sel_action)
+        self.buttons_box.pack_start(self.task_up, True, True, 0)
+        self.task_down = Gtk.Button()
+        img = Gtk.Image.new_from_icon_name("go-down-symbolic",
+                Gtk.IconSize.BUTTON)
+        self.task_down.set_image(img)
+        self.task_down.connect("clicked", self.on_sel_action)
+        self.buttons_box.pack_start(self.task_down, True, True, 0)
+
 
     def on_page_next(self, tnotebook):
         """Switch to next tab"""
@@ -127,6 +157,11 @@ class HeaderBarWindow(Gtk.Window):
         newpage.project_name = self.tnotebook.get_tab_label_text(newpage)
         newpage.on_save_list(newpage.project_name)
 
+    def rename_prj_dialog(self, tnotebook):
+        self.new_name_input = InputWin("Renommer le projet « " +
+                                           self.get_project_name() + " »",
+                                           self.on_rename_project)
+
     def on_rename_project(self, text):
         """Change page label (rename project)"""
         os.rename(share_dir + "/" + self.get_project_name(),
@@ -134,9 +169,13 @@ class HeaderBarWindow(Gtk.Window):
         self.tnotebook.set_tab_label_text(self.get_current_child(), text)
         self.new_name_input.close()
 
+    def on_save_notebook(self, widget):
+        self.get_current_child().on_save_list(self.get_project_name())
+
     def on_del_project(self, tnotebook):
         """Remove page from notebook"""
-        dialog = ConfirmDialog(self, "Supprimer ce projet")
+        dialog = ConfirmDialog(self, "Supprimer le projet « " +
+                               self.get_project_name() + " » ?")
         response = dialog.run()
         if response == Gtk.ResponseType.OK:
             # Supprimer le fichier contenant le projet :
@@ -167,28 +206,30 @@ class HeaderBarWindow(Gtk.Window):
         """ Launch action depending on clicked button """
         project_name = self.get_project_name()
         if widget.get_label() == "Nouvelle tâche":
-            self.get_current_child().on_launch_creation()
-        elif widget.get_label() == "Enregistrer":
-            self.get_current_child().on_save_list(project_name)
-        elif widget.get_label() == "Renommer projet":
-            self.new_name_input = InputWin("Nouveau nom de projet",
-                                           self.on_rename_project)
+            self.get_current_child().on_launch_creation(
+                self.get_project_name())
         elif widget.get_label() == "Supprimer":
             self.get_current_child().on_row_delete()
         elif widget.get_label() == "Quitter":
             self.get_current_child().on_save_list(project_name)
             Gtk.main_quit()
+        elif widget == self.task_up:
+            self.get_current_child().on_task_up()
+        elif widget == self.task_down:
+            self.get_current_child().on_task_down()
 
     def on_edit_active(self, switch, gparam):
         """ What to do when edit switch becomes active """
         if self.switch_edit.get_active():  # Si le switch devient actif...
             # ...rendre le bouton "Supprimer" actif...
-            self.buttons[3].connect("clicked", self.on_sel_action)
+            self.buttons[1].connect("clicked", self.on_sel_action)
+            self.buttons[1].set_sensitive(True)
             # ...et permettre la sélection des "rows" (des tâches donc)
             self.get_current_child().sel.set_mode(Gtk.SelectionMode.SINGLE)
         else:  # S'il devient inactif interdire la sélection
-            self.buttons[3].disconnect_by_func(self.on_sel_action)
+            self.buttons[1].disconnect_by_func(self.on_sel_action)
             self.get_current_child().sel.set_mode(Gtk.SelectionMode.NONE)
+            self.buttons[1].set_sensitive(False)
 
     def on_page_change(self, notebook, page, page_num):
         """If edit switch is active then all todolists can be edited"""
@@ -314,7 +355,7 @@ class ToDoListBox(Gtk.Box):
                         # ... récupérer l'adresse du "row" en cours d'édition
                         iter = self.tdlist_store.get_iter(c)
                         # ... récup la valeur de la 1ère colonne
-                        state = self.tdlist_store.get_value(iter, 0)
+                        # state = self.tdlist_store.get_value(iter, 0)
                         # ... et la définir à False (bien formaté)
                         self.tdlist_store.set_value(iter, 0, False)
                     c += 1
@@ -337,6 +378,32 @@ class ToDoListBox(Gtk.Box):
             file_out.write(str(row[0]) + ", " + str(''.join(row[1])) + "\n")
         file_out.close()
 
+    def on_task_up(self):
+        """Move selected task up"""
+        selection = self.tdview.get_selection()
+        self.tdlist_store, paths = selection.get_selected_rows()
+
+        # Obtenir le "TreeIter" des "rows" sélectionnés :
+        for path in paths:
+            iter = self.tdlist_store.get_iter(path)
+
+        # Déplacement :
+        self.tdlist_store.move_before(iter,
+                self.tdlist_store.iter_previous(iter))
+
+    def on_task_down(self):
+        """Move selected task up"""
+        selection = self.tdview.get_selection()
+        self.tdlist_store, paths = selection.get_selected_rows()
+
+        # Obtenir le "TreeIter" des "rows" sélectionnés :
+        for path in paths:
+            iter = self.tdlist_store.get_iter(path)
+
+        # Déplacement :
+        self.tdlist_store.move_after(iter,
+                self.tdlist_store.iter_next(iter))
+
     def on_row_delete(self):
         """Select line and remove it"""
         # Obtenir "l'adresse" de(s) "row(s)" sélectionnés
@@ -351,11 +418,12 @@ class ToDoListBox(Gtk.Box):
         # Et on supprime le "row" référencé par l'iter obtenu :
         self.tdlist_store.remove(iter)
 
-    def on_launch_creation(self):
+    def on_launch_creation(self, parent_project):
         """Show input box to create new task"""
         # Instanciation d'un objet de la classe "InputWin"
         # et définition de sa fonction de callback
-        self.ta = InputWin("Créer une nouvelle tâche", self.on_create_new)
+        self.ta = InputWin("Créer une nouvelle tâche dans « " + parent_project
+                           + " »", self.on_create_new)
         self.ta.show()
 
     def on_create_new(self, text):
@@ -374,7 +442,7 @@ class InputWin(Gtk.Window):
         self.callback = callback
 
         # Paramètre de taille et esthétiques :
-        self.set_size_request(300, 70)
+        self.set_size_request(500, 70)
         self.set_border_width(10)
 
         # Instanciation d'une boîte organisant les éléments créés ci-dessous :
