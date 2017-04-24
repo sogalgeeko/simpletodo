@@ -5,7 +5,7 @@ import os
 import sys
 import gi
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk
+from gi.repository import Gtk, Gdk
 
 
 class HeaderBarWindow(Gtk.Window):
@@ -41,6 +41,9 @@ class HeaderBarWindow(Gtk.Window):
         nextb.connect("clicked", self.on_page_next)
         navbox.add(nextb)
 
+        self.percent_label = Gtk.Label()
+        navbox.add(self.percent_label)
+
         newtab = Gtk.Button()
         img = Gtk.Image.new_from_icon_name("list-add-symbolic",
                                            Gtk.IconSize.MENU)
@@ -55,7 +58,6 @@ class HeaderBarWindow(Gtk.Window):
         deltab.connect("clicked", self.on_del_project)
         prjbox.add(deltab)
 
-        # TODO : CLEAN THIS VERY VERY SHITTY MENU TEST !!!
         prj_menu = Gtk.MenuButton()
         prj_menu_img = Gtk.Image.new_from_icon_name("open-menu-symbolic",
                                                 Gtk.IconSize.BUTTON)
@@ -80,7 +82,7 @@ class HeaderBarWindow(Gtk.Window):
         self.add(self.main_box)
 
         # Ajout du widget à onglet :
-        self.tnotebook = TaskNoteBook()
+        self.tnotebook = TaskNoteBook(self.get_percent_done)
         self.main_box.add(self.tnotebook)
         self.tnotebook.popup_enable()
         self.tnotebook.set_scrollable(True)
@@ -131,6 +133,13 @@ class HeaderBarWindow(Gtk.Window):
         self.task_down.connect("clicked", self.on_sel_action)
         self.buttons_box.pack_start(self.task_down, True, True, 0)
 
+        # Keyboard shortcuts :
+        accel = Gtk.AccelGroup()
+        accel.connect(Gdk.keyval_from_name('o'),
+                Gdk.ModifierType.CONTROL_MASK,
+                Gtk.AccelFlags.VISIBLE,
+                self.accel_new_task)
+        self.add_accel_group(accel)
 
     def on_page_next(self, tnotebook):
         """Switch to next tab"""
@@ -172,6 +181,25 @@ class HeaderBarWindow(Gtk.Window):
     def on_save_notebook(self, widget):
         self.get_current_child().on_save_list(self.get_project_name())
 
+    def get_percent_done(self, **kwargs):
+        """Calculate percentage of done tasks
+        based on presence of 'True' in project file"""
+        project_name = self.get_project_name()
+        self.get_current_child().on_save_list(project_name)
+        tasks_list = []
+        tasks_total = 0
+        with open(share_dir + "/" + project_name, 'r') as file:
+            for line in file:
+                tasks_total += 1
+                line = line.strip().split(',')
+                tasks_list.append(line)
+        tasks_done = 0
+        for i in tasks_list:
+            tasks_done += i.count('True')
+
+        percent_done = int(tasks_done * 100 / tasks_total)
+        self.percent_label.set_text(str(percent_done) + "%")
+
     def on_del_project(self, tnotebook):
         """Remove page from notebook"""
         dialog = ConfirmDialog(self, "Supprimer le projet « " +
@@ -208,6 +236,7 @@ class HeaderBarWindow(Gtk.Window):
         if widget.get_label() == "Nouvelle tâche":
             self.get_current_child().on_launch_creation(
                 self.get_project_name())
+            self.get_percent_done()
         elif widget.get_label() == "Supprimer":
             self.get_current_child().on_row_delete()
         elif widget.get_label() == "Quitter":
@@ -239,24 +268,29 @@ class HeaderBarWindow(Gtk.Window):
         else:
             notebook.get_nth_page(page_num).sel.set_mode(
                 Gtk.SelectionMode.NONE)
+        self.percent_label.set_text("")
+
+    def accel_new_task(self, *args):
+        self.get_current_child().on_launch_creation(
+                self.get_project_name())
 
 
 class TaskNoteBook(Gtk.Notebook):
     """ Initialize custom Notebook class instance """
 
-    def __init__(self):
+    def __init__(self, callback):
         Gtk.Notebook.__init__(self)
         self.set_border_width(3)
 
         # Si aucun projet n'existe, en démarrer un vierge :
         if len(os.listdir(share_dir)) == 0:
-            self.page1 = ToDoListBox()
+            self.page1 = ToDoListBox(callback)
             self.append_page(self.page1, Gtk.Label('Nouveau projet'))
             self.page1.on_save_list('Nouveau projet')
         else:
             # Si oui, les charger chacun dans un onglet :
             for file in os.listdir(share_dir):
-                self.newpage = ToDoListBox()
+                self.newpage = ToDoListBox(callback)
                 self.append_page(self.newpage, Gtk.Label(file))
                 self.show_all()
                 self.newpage.on_startup_file_load(file)
@@ -267,10 +301,11 @@ class TaskNoteBook(Gtk.Notebook):
 class ToDoListBox(Gtk.Box):
     """ Create a box that will contain tasks """
 
-    def __init__(self):
+    def __init__(self, callback):
         # À partir du constructeur parent :
         Gtk.Box.__init__(self)
 
+        self.callback_percent = callback
         # Création de la liste des tâches et déclaration de son contenu :
         self.tdlist_store = Gtk.ListStore(bool, str)
         # Ajout des infos à cette liste :
@@ -364,6 +399,7 @@ class ToDoListBox(Gtk.Box):
         """What to do when checkbox is un/activated"""
         # Inverser l'état de la case
         self.tdlist_store[path][0] = not self.tdlist_store[path][0]
+        self.callback_percent()
 
     def on_task_edit(self, widget, path, text):
         """What to do when cell (task) is edited"""
