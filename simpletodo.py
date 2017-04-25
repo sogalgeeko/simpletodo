@@ -44,7 +44,7 @@ class HeaderBarWindow(Gtk.Window):
         # Empty label, will receive percentage done later :
         self.percent_label = Gtk.Label()
         navbox.add(self.percent_label)
-        
+
         # Project add/suppr buttons :
         newtab = Gtk.Button()
         img = Gtk.Image.new_from_icon_name("list-add-symbolic",
@@ -63,7 +63,7 @@ class HeaderBarWindow(Gtk.Window):
         # Advanced project mgt actions in a menu :
         prj_menu = Gtk.MenuButton()
         prj_menu_img = Gtk.Image.new_from_icon_name("open-menu-symbolic",
-                                                Gtk.IconSize.BUTTON)
+                                                    Gtk.IconSize.BUTTON)
         prj_menu.add(prj_menu_img)
         menu_entries = Gtk.Menu()
         i1 = Gtk.MenuItem("Renommer...")
@@ -128,33 +128,44 @@ class HeaderBarWindow(Gtk.Window):
         # Add task order mgt buttons :
         self.task_up = Gtk.Button()
         img = Gtk.Image.new_from_icon_name("go-up-symbolic",
-                Gtk.IconSize.BUTTON)
+                                           Gtk.IconSize.BUTTON)
         self.task_up.set_image(img)
         self.task_up.connect("clicked", self.on_sel_action)
         self.buttons_box.pack_start(self.task_up, True, True, 10)
         self.task_down = Gtk.Button()
         img = Gtk.Image.new_from_icon_name("go-down-symbolic",
-                Gtk.IconSize.BUTTON)
+                                           Gtk.IconSize.BUTTON)
         self.task_down.set_image(img)
         self.task_down.connect("clicked", self.on_sel_action)
         self.buttons_box.pack_start(self.task_down, True, True, 0)
-        
+
+        # Create ComboxBox of target to move selected task to :
+        label = Gtk.Label("Déplacer vers")
+        label.set_margin_start(5)
+        label.set_margin_end(5)
+        self.projects_cbox = Gtk.ComboBoxText()
+        for project_name in os.listdir(share_dir):
+            self.projects_cbox.append_text(project_name)
+        self.buttons_box.pack_start(label, True, True, 0)
+        self.buttons_box.pack_end(self.projects_cbox, True, True, 0)
+
         # As long as "Édition" mode not active,
         # some buttons remain inactive :
         self.buttons[1].set_sensitive(False)
         self.task_up.set_sensitive(False)
         self.task_down.set_sensitive(False)
+        self.projects_cbox.set_sensitive(False)
 
         # Keyboard shortcuts :
         accel = Gtk.AccelGroup()
         accel.connect(Gdk.keyval_from_name('n'),
-                Gdk.ModifierType.CONTROL_MASK,
-                Gtk.AccelFlags.VISIBLE,
-                self.accel_new_task)
+                      Gdk.ModifierType.CONTROL_MASK,
+                      Gtk.AccelFlags.VISIBLE,
+                      self.accel_new_task)
         accel.connect(Gdk.keyval_from_name('e'),
-                Gdk.ModifierType.CONTROL_MASK,
-                Gtk.AccelFlags.VISIBLE,
-                self.accel_edit_mode_on)
+                      Gdk.ModifierType.CONTROL_MASK,
+                      Gtk.AccelFlags.VISIBLE,
+                      self.accel_edit_mode_on)
         self.add_accel_group(accel)
 
     def on_page_next(self, tnotebook):
@@ -165,13 +176,23 @@ class HeaderBarWindow(Gtk.Window):
         """Switch to previous tab"""
         self.tnotebook.prev_page()
 
+    def launch_task_move(self, *args):
+        """Move the selected task by moving its content
+        to target then removing it"""
+        task_content = self.get_current_child().get_selected_task()
+        self.get_current_child().on_row_delete()
+        for child in self.tnotebook:
+            project_name = self.tnotebook.get_tab_label_text(child)
+            page_index = self.tnotebook.page_num(child)
+            if project_name == self.projects_cbox.get_active_text():
+                self.tnotebook.set_current_page(page_index)
+                self.get_current_child().on_move_task_to_list(task_content)
+
     def new_project_dialog(self, tnotebook):
-        """Launch project creation dialog : 
+        """Launch project creation dialog :
         initialize input window with 'on_new_tab' as callback function"""
         self.pjr_name_input = InputWin("Nouveau projet", self.on_new_tab)
         self.pjr_name_input.show()
-        # TODO : check name length, if == 0, refuse to create project...
-        # TODO : as file creation will fail
 
     def on_new_tab(self, text):
         """Create a new page from TodoListBox class,
@@ -184,14 +205,15 @@ class HeaderBarWindow(Gtk.Window):
         # When project is created and named, create its file on disk :
         newpage.project_name = self.tnotebook.get_tab_label_text(newpage)
         newpage.on_save_list(newpage.project_name)
+        self.tnotebook.set_tab_reorderable(newpage, True)
 
     def rename_prj_dialog(self, tnotebook):
         """Open InputWin class instance to rename project,
         on_rename_project will be called to actually change
         project tab label text"""
         self.new_name_input = InputWin("Renommer le projet « " +
-                                           self.get_project_name() + " »",
-                                           self.on_rename_project)
+                                       self.get_project_name() + " »",
+                                       self.on_rename_project)
 
     def on_rename_project(self, text):
         """Change tab label (rename project)"""
@@ -279,14 +301,17 @@ class HeaderBarWindow(Gtk.Window):
             self.buttons[1].set_sensitive(True)
             self.task_up.set_sensitive(True)
             self.task_down.set_sensitive(True)
-            # ...and allow rows (i.e taks) muose selection :
+            self.projects_cbox.set_sensitive(True)
+            # ...and allow rows (i.e taks) mouse selection :
             self.get_current_child().sel.set_mode(Gtk.SelectionMode.SINGLE)
+            self.projects_cbox.connect("changed", self.launch_task_move)
         else:  # If switch becomes inactive, forbid selection...
             # and deactivate "Supprimer" button :
             self.get_current_child().sel.set_mode(Gtk.SelectionMode.NONE)
             self.buttons[1].set_sensitive(False)
             self.task_up.set_sensitive(False)
             self.task_down.set_sensitive(False)
+            self.projects_cbox.set_sensitive(False)
 
     def on_page_change(self, notebook, page, page_num):
         """If edit switch is active then all todolists can be edited"""
@@ -302,8 +327,8 @@ class HeaderBarWindow(Gtk.Window):
         """Define action to perform on keyboard shortcut,
         here Ctrl + n launches task creation in active page list"""
         self.get_current_child().on_launch_creation(
-                self.get_project_name())
-                
+            self.get_project_name())
+
     def accel_edit_mode_on(self, *args):
         """On keyboard shortcut, toggle switch state,
         this will activate edit mode"""
@@ -393,6 +418,28 @@ class ToDoListBox(Gtk.Box):
         self.add(self.scrollable_treelist)
         self.set_child_packing(self.scrollable_treelist, True, True, 0, 0)
 
+    def get_selected_task(self):
+        # TODO : insure that something is selected (same for remove func)
+        selection = self.tdview.get_selection()
+        (model, pathlist) = selection.get_selected_rows()
+        for path in pathlist:
+            treeiter = model.get_iter(path)
+            state = model.get_value(treeiter, 0)
+            task = model.get_value(treeiter, 1)
+        return [str(state), str(task)]
+
+    def on_move_task_to_file(self, target):
+        """Remove task from current project and add it to
+        the target project"""
+        state = self.get_selected_task()[0]
+        task = self.get_selected_task()[1]
+        with open(share_dir + "/" + str(target), 'w') as f:
+            f.write(str(state) + "," + task)
+
+    def on_move_task_to_list(self, text):
+        task = text[1]
+        self.tdlist_store.insert_with_valuesv(-1, [1], [task])
+
     def on_startup_file_load(self, project_name):
         """On app launch, load project file and format entries"""
         if not os.path.exists(share_dir):
@@ -409,7 +456,7 @@ class ToDoListBox(Gtk.Box):
                     line = line.strip().split(',')
                     # Format tasks name and append them to treestore :
                     entry = (str(line[0]).strip(','),
-                                     str(' '.join(line[1:])))
+                             str(' '.join(line[1:])))
                     self.tdlist_store.append(entry)
                     # Restore check boxes state according to line[0] content :
                     if entry[0] == "False":
@@ -443,7 +490,7 @@ class ToDoListBox(Gtk.Box):
             iter = self.tdlist_store.get_iter(path)
         # And move it before the previous iter :
         self.tdlist_store.move_before(iter,
-                self.tdlist_store.iter_previous(iter))
+                                      self.tdlist_store.iter_previous(iter))
 
     def on_task_down(self):
         """Move selected task up"""
@@ -454,7 +501,7 @@ class ToDoListBox(Gtk.Box):
             iter = self.tdlist_store.get_iter(path)
         # And move it after the next iter :
         self.tdlist_store.move_after(iter,
-                self.tdlist_store.iter_next(iter))
+                                     self.tdlist_store.iter_next(iter))
 
     def on_row_delete(self):
         """Select line and remove it"""
@@ -472,14 +519,15 @@ class ToDoListBox(Gtk.Box):
         """Show input box to create new task
         defined by 'project_name'. The new task will be
         created by the callback function"""
-        self.ta = InputWin("Créer une nouvelle tâche dans « " + parent_project
-                           + " »", self.on_create_new)
+        self.ta = InputWin("Créer une nouvelle tâche dans « " +
+                           parent_project + " »", self.on_create_new)
         self.ta.show()
 
-    def on_create_new(self, text):
+    def on_create_new(self, text, inputbox):
         """Append task at the end of ListStore"""
         self.tdlist_store.insert_with_valuesv(-1, [1], [text])
-        self.ta.close()
+        if inputbox == 1:
+            self.ta.close()
 
 
 class InputWin(Gtk.Window):
@@ -516,7 +564,8 @@ class InputWin(Gtk.Window):
     def on_create_object(self, button):
         """Send entry text to parent class object (here : HeaderBarWindow)
         callback function"""
-        self.callback(self.object_entry.get_text())
+        if self.object_entry.get_text() != "":
+            self.callback(self.object_entry.get_text(), 1)
 
 
 class ConfirmDialog(Gtk.Dialog):
@@ -540,39 +589,29 @@ class ConfirmDialog(Gtk.Dialog):
 
 class AboutDialog(Gtk.AboutDialog):
     """Dialog showing tips and info about the app"""
-    
+
     def __init__(self):
         Gtk.AboutDialog.__init__(self)
         self.set_icon_name("gtg")
         self.set_transient_for(win)
         self.set_modal(True)
-        
+
         self.set_authors(["Sébastien POHER"])
         self.set_comments("""SimpleTodo est un gestionnaire
 de tâches simple avec onglets.
 Il permet de gérer des projets et de réordonner simplement les tâches.""")
         self.set_copyright("Copyright © Sébastien Poher")
         self.set_license("""
-This program is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 3 of the License, or
-(at your option) any later version.
- 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
-MA 02110-1301, USA.""")
+Ce programme est un logiciel libre, vous pouvez donc le redistribuer
+et/ou le modifier dans le respect des termes de GNU General Public License
+telle que publiée par la Free Software Foundation dans sa version 3
+ou ultérieure.""")
         self.set_program_name("SimpleTodo")
         self.set_version("1.2b")
         self.set_website("https://code.eveha.fr/sebastien.poher/simpleTodo")
 
         self.show_all()
-        
+
 
 tdlist = []
 share_dir = os.path.expanduser('~/.local/share/simpletodo')
