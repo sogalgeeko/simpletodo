@@ -24,7 +24,7 @@ class HeaderBarWindow(Gtk.Window):
         headerb.props.title = "Simple Todo"
         self.set_titlebar(headerb)
 
-        # Ajout de box destinées recevant les boutons de gestion des projets :
+        # Box receiving project management buttons :
         navbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
         Gtk.StyleContext.add_class(navbox.get_style_context(), "linked")
 
@@ -41,14 +41,16 @@ class HeaderBarWindow(Gtk.Window):
         nextb.connect("clicked", self.on_page_next)
         navbox.add(nextb)
 
+        # Empty label, will receive percentage done later :
         self.percent_label = Gtk.Label()
         navbox.add(self.percent_label)
-
+        
+        # Project add/suppr buttons :
         newtab = Gtk.Button()
         img = Gtk.Image.new_from_icon_name("list-add-symbolic",
                                            Gtk.IconSize.MENU)
         newtab.set_image(img)
-        newtab.connect("clicked", self.on_new_project)
+        newtab.connect("clicked", self.new_project_dialog)
         prjbox.add(newtab)
 
         deltab = Gtk.Button()
@@ -58,6 +60,7 @@ class HeaderBarWindow(Gtk.Window):
         deltab.connect("clicked", self.on_del_project)
         prjbox.add(deltab)
 
+        # Advanced project mgt actions in a menu :
         prj_menu = Gtk.MenuButton()
         prj_menu_img = Gtk.Image.new_from_icon_name("open-menu-symbolic",
                                                 Gtk.IconSize.BUTTON)
@@ -77,49 +80,48 @@ class HeaderBarWindow(Gtk.Window):
         headerb.pack_start(navbox)
         headerb.pack_end(prjbox)
 
-        # Conteneur principal recevant le widget à onglet :
+        # Main container for tabbed widget (notebook) :
         self.main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         self.add(self.main_box)
 
-        # Ajout du widget à onglet :
+        # Create notebook from class :
         self.tnotebook = TaskNoteBook(self.get_percent_done)
         self.main_box.add(self.tnotebook)
         self.tnotebook.popup_enable()
         self.tnotebook.set_scrollable(True)
         self.tnotebook.connect("switch-page", self.on_page_change)
 
-        # En dessous, ajout de la box pour boutons de contrôle :
+        # Below notebook, add tasks management buttons box :
         self.buttons_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
         self.main_box.add(self.buttons_box)
 
-        # Création séquentielle des boutons :
+        # Create tasks management buttons :
         self.buttons = list()
         for action in ["Nouvelle tâche",
                        "Supprimer",
                        "Quitter"]:
             button = Gtk.Button(action)
             self.buttons.append(button)
-            # Connexion des boutons à la fonc. de sélection des actions
+            # Connect them all to an action define later by on_sel_action :
             button.connect("clicked", self.on_sel_action)
-        # ... sauf "Supprimer" (activé par le mode "Édition")
+        # ... except "Supprimer" (toggled by "Édition")
         self.buttons[1].disconnect_by_func(self.on_sel_action)
-        self.buttons[1].set_sensitive(False)
 
-        # Instanciation du label du switch du mode "Édition" :
+        # Create "Édition" mode switch:
         self.switch_label = Gtk.Label("Mode édition")
-        # Instanciation du switch lui-même :
         self.switch_edit = Gtk.Switch()
-        # Lorsque actif, lancer la fonction
+        # When switch become active :
         self.switch_edit.connect("notify::active",
                                  self.on_edit_active)
-        self.switch_edit.set_active(False)  # Switch inactif par défaut
+        self.switch_edit.set_active(False)  # Switch not active by default
 
         self.buttons_box.pack_start(self.switch_label, True, True, 0)
         self.buttons_box.pack_start(self.switch_edit, True, True, 0)
         for i, button in enumerate(self.buttons):
-            # Ajout successif des autres boutons à droite du 1er
+            # Pack each button on the right :
             self.buttons_box.pack_start(self.buttons[i], True, False, 0)
 
+        # Add task order mgt buttons :
         self.task_up = Gtk.Button()
         img = Gtk.Image.new_from_icon_name("go-up-symbolic",
                 Gtk.IconSize.BUTTON)
@@ -132,13 +134,23 @@ class HeaderBarWindow(Gtk.Window):
         self.task_down.set_image(img)
         self.task_down.connect("clicked", self.on_sel_action)
         self.buttons_box.pack_start(self.task_down, True, True, 0)
+        
+        # As long as "Édition" mode not active,
+        # some buttons remain inactive :
+        self.buttons[1].set_sensitive(False)
+        self.task_up.set_sensitive(False)
+        self.task_down.set_sensitive(False)
 
         # Keyboard shortcuts :
         accel = Gtk.AccelGroup()
-        accel.connect(Gdk.keyval_from_name('o'),
+        accel.connect(Gdk.keyval_from_name('n'),
                 Gdk.ModifierType.CONTROL_MASK,
                 Gtk.AccelFlags.VISIBLE,
                 self.accel_new_task)
+        accel.connect(Gdk.keyval_from_name('e'),
+                Gdk.ModifierType.CONTROL_MASK,
+                Gtk.AccelFlags.VISIBLE,
+                self.accel_edit_mode_on)
         self.add_accel_group(accel)
 
     def on_page_next(self, tnotebook):
@@ -149,41 +161,49 @@ class HeaderBarWindow(Gtk.Window):
         """Switch to previous tab"""
         self.tnotebook.prev_page()
 
-    def on_new_project(self, tnotebook):
-        """Initialize input window with 'on_new_tab' as callback function"""
+    def new_project_dialog(self, tnotebook):
+        """Launch project creation dialog : 
+        initialize input window with 'on_new_tab' as callback function"""
         self.pjr_name_input = InputWin("Nouveau projet", self.on_new_tab)
         self.pjr_name_input.show()
+        # TODO : check name length, if == 0, refuse to create project...
+        # TODO : as file creation will fail
 
     def on_new_tab(self, text):
-        """Actually append page to notebook"""
-        # Créer une instance de todolist :
+        """Create a new page from TodoListBox class,
+        name is set from project creation dialog"""
         newpage = ToDoListBox()
         self.tnotebook.append_page(newpage, Gtk.Label(text))
         self.tnotebook.show_all()
         self.pjr_name_input.close()
         self.tnotebook.set_current_page(-1)
-        # Dès la création de la nouvelle todolist, créer son fichier :
+        # When project is created and named, create its file on disk :
         newpage.project_name = self.tnotebook.get_tab_label_text(newpage)
         newpage.on_save_list(newpage.project_name)
 
     def rename_prj_dialog(self, tnotebook):
+        """Open InputWin class instance to rename project,
+        on_rename_project will be called to actually change
+        project tab label text"""
         self.new_name_input = InputWin("Renommer le projet « " +
                                            self.get_project_name() + " »",
                                            self.on_rename_project)
 
     def on_rename_project(self, text):
-        """Change page label (rename project)"""
+        """Change tab label (rename project)"""
         os.rename(share_dir + "/" + self.get_project_name(),
                   share_dir + "/" + text)
         self.tnotebook.set_tab_label_text(self.get_current_child(), text)
         self.new_name_input.close()
 
     def on_save_notebook(self, widget):
+        """Save current (with focus) list"""
+        # TODO : on_save_notebook should save ALL pages
         self.get_current_child().on_save_list(self.get_project_name())
 
     def get_percent_done(self, **kwargs):
         """Calculate percentage of done tasks
-        based on presence of 'True' in project file"""
+        based on presence of 'True' in project file content"""
         project_name = self.get_project_name()
         self.get_current_child().on_save_list(project_name)
         tasks_list = []
@@ -206,7 +226,7 @@ class HeaderBarWindow(Gtk.Window):
                                self.get_project_name() + " » ?")
         response = dialog.run()
         if response == Gtk.ResponseType.OK:
-            # Supprimer le fichier contenant le projet :
+            # Remove project file from disk :
             os.remove(share_dir + "/" + self.get_project_name())
             self.tnotebook.remove_page(self.tnotebook.get_current_page())
             if len(os.listdir(share_dir)) == 0:
@@ -247,18 +267,23 @@ class HeaderBarWindow(Gtk.Window):
         elif widget == self.task_down:
             self.get_current_child().on_task_down()
 
-    def on_edit_active(self, switch, gparam):
+    def on_edit_active(self, switch, gparam, *args):
         """ What to do when edit switch becomes active """
-        if self.switch_edit.get_active():  # Si le switch devient actif...
-            # ...rendre le bouton "Supprimer" actif...
+        if self.switch_edit.get_active():  # If switch becomes active...
+            # ...make "Supprimer" button active...
             self.buttons[1].connect("clicked", self.on_sel_action)
             self.buttons[1].set_sensitive(True)
-            # ...et permettre la sélection des "rows" (des tâches donc)
+            self.task_up.set_sensitive(True)
+            self.task_down.set_sensitive(True)
+            # ...and allow rows (i.e taks) muose selection :
             self.get_current_child().sel.set_mode(Gtk.SelectionMode.SINGLE)
-        else:  # S'il devient inactif interdire la sélection
-            self.buttons[1].disconnect_by_func(self.on_sel_action)
+        else:  # If switch becomes inactive, forbid selection...
+            # and deactivate "Supprimer" button :
+            #~ self.buttons[1].disconnect_by_func(self.on_sel_action)
             self.get_current_child().sel.set_mode(Gtk.SelectionMode.NONE)
             self.buttons[1].set_sensitive(False)
+            self.task_up.set_sensitive(False)
+            self.task_down.set_sensitive(False)
 
     def on_page_change(self, notebook, page, page_num):
         """If edit switch is active then all todolists can be edited"""
@@ -271,9 +296,18 @@ class HeaderBarWindow(Gtk.Window):
         self.percent_label.set_text("")
 
     def accel_new_task(self, *args):
+        """Define action to perform on keyboard shortcut,
+        here Ctrl + n launches task creation in active page list"""
         self.get_current_child().on_launch_creation(
                 self.get_project_name())
-
+                
+    def accel_edit_mode_on(self, *args):
+        """On keyboard shortcut, toggle switch state,
+        this will activate edit mode"""
+        if self.switch_edit.get_active() == False:
+            self.switch_edit.set_active(True)
+        else:
+            self.switch_edit.set_active(False)
 
 class TaskNoteBook(Gtk.Notebook):
     """ Initialize custom Notebook class instance """
@@ -282,13 +316,14 @@ class TaskNoteBook(Gtk.Notebook):
         Gtk.Notebook.__init__(self)
         self.set_border_width(3)
 
-        # Si aucun projet n'existe, en démarrer un vierge :
+        # If there is no project file in app data dir, create empty project
+        # and create its file on disk :
         if len(os.listdir(share_dir)) == 0:
             self.page1 = ToDoListBox(callback)
             self.append_page(self.page1, Gtk.Label('Nouveau projet'))
             self.page1.on_save_list('Nouveau projet')
         else:
-            # Si oui, les charger chacun dans un onglet :
+            # Otherwise load project files in newly created pages :
             for file in os.listdir(share_dir):
                 self.newpage = ToDoListBox(callback)
                 self.append_page(self.newpage, Gtk.Label(file))
@@ -302,58 +337,51 @@ class ToDoListBox(Gtk.Box):
     """ Create a box that will contain tasks """
 
     def __init__(self, callback):
-        # À partir du constructeur parent :
         Gtk.Box.__init__(self)
 
         self.callback_percent = callback
-        # Création de la liste des tâches et déclaration de son contenu :
+        # Create tasks list and declare its future content :
         self.tdlist_store = Gtk.ListStore(bool, str)
-        # Ajout des infos à cette liste :
         for tache in tdlist:
             self.tdlist_store.append([False, tache])
         self.current_filter_language = None
 
-        # Instanciation du type de vue à partir du "ListStore" créé :
+        # Create a treeview from tasks list :
         self.tdview = Gtk.TreeView(model=self.tdlist_store)
 
-        # Instanciation des cellules des cases à cocher :
+        # Create "task done" check box :
         renderer_check = Gtk.CellRendererToggle()
         renderer_check.connect("toggled", self.on_task_check)
-
-        # Colonne contenant les cellules de cases à cocher :
+        # Create check boxes column...
         column_check = Gtk.TreeViewColumn("Finie", renderer_check,
                                           active=0)
-        # Ajout de cette colonne à la vue "tdview" créée précédemment :
+        # ... and add it to the treeview :
         self.tdview.append_column(column_check)
 
-        # Instanciation des cellules recevant les tâches :
+        # Create "task name" cells...
         renderer_task = Gtk.CellRendererText()
-        # Ces cellules seront éditables...
+        # ... make them editable...
         renderer_task.set_property("editable", True)
-        # ... et cette fonction exécutée à l'édition
+        # ... and launch 'on_task_edit' when edited :
         renderer_task.connect("edited", self.on_task_edit)
-
-        # Instanciation d'une colonne recevant les cellules des tâches :
+        # Create tasks name column...
         self.column_task = Gtk.TreeViewColumn("Description de la tâche",
                                               renderer_task, text=1)
         self.column_task.set_sort_column_id(1)  # Cette colonne sera triable.
-        # Ajout de cette colonne à la vue "tdview" créée précédemment :
+        # ... and add it to the treeview :
         self.tdview.append_column(self.column_task)
 
-        # Par défaut les cellules ne seront pas sélectionnables
-        # (le mode "Édition" le permettra) :
+        # By default, we can't select cells
+        # (only active Selection mode allows it) :
         self.sel = self.tdview.get_selection()
         self.sel.set_mode(Gtk.SelectionMode.NONE)
 
-        # Instanciation d'un conteneur (fenêtre) scrollable
-        # qui recevra la vue "tdview" :
+        # Create a scrollable container that will receive the treeview :
         self.scrollable_treelist = Gtk.ScrolledWindow()
         self.scrollable_treelist.set_vexpand(True)
         self.scrollable_treelist.set_border_width(5)
-        # Ainsi on peut scroller dans la vue "liste des tâches" (tdview)
         self.scrollable_treelist.add(self.tdview)
-
-        # Ajout du conteneur scrollable à la grille
+        # Add this container to the todo list box :
         self.add(self.scrollable_treelist)
         self.set_child_packing(self.scrollable_treelist, True, True, 0, 0)
 
@@ -361,43 +389,29 @@ class ToDoListBox(Gtk.Box):
         """On app launch, load project file and format entries"""
         if not os.path.exists(share_dir):
             os.makedirs(share_dir, mode=0o775)
-        if not os.path.exists(share_dir + "/" + project_name):
-            # S'il n'existe pas, un dialogue propose sa création
-            self.tdfile_creation_dialog()
-        # Si le fichier est vide (taille == 0 ), ne pas chercher à le charger :
-        elif os.path.getsize(share_dir + "/" + project_name) == 0:
+        # If file is empty, there's no need to load it :
+        if os.path.getsize(share_dir + "/" + project_name) == 0:
             pass
         else:
-            # S'il existe, l'ouvrir et ajouter ses entrées à self.tdlist_store
-            # :
+            # If it exists, load its entries into self.tdlist_store :
+            file_len, c = 0, 0
             with open(share_dir + "/" + project_name, 'r') as file_in:
-                for i, l in enumerate(file_in):
-                    pass
-            file_len = i + 1
-            with open(share_dir + "/" + project_name, 'r') as file_in:
-                c = 0
-                while c < file_len:
-                    entry = file_in.readline().split()
-                    # Formatage de l'entrée avant ajout au ListStore :
-                    cleaned_entry = (str(entry[0]).strip(','),
-                                     str(' '.join(entry[1:])))
-                    # print(str(entry[0]).strip(','))
-                    self.tdlist_store.append(cleaned_entry)
-                    # Bidouille pour que les cases à cocher
-                    # retrouvent leur état précédent :
-                    # Si l'état = à False (mal formaté)...
-                    if entry[0] == "False,":
-                        # ... récupérer l'adresse du "row" en cours d'édition
+                for line in file_in:
+                    file_len += 1
+                    line = line.strip().split(',')
+                    # Format tasks name and append them to treestore :
+                    entry = (str(line[0]).strip(','),
+                                     str(' '.join(line[1:])))
+                    self.tdlist_store.append(entry)
+                    # Restore check boxes state according to line[0] content :
+                    if entry[0] == "False":
                         iter = self.tdlist_store.get_iter(c)
-                        # ... récup la valeur de la 1ère colonne
-                        # state = self.tdlist_store.get_value(iter, 0)
-                        # ... et la définir à False (bien formaté)
                         self.tdlist_store.set_value(iter, 0, False)
                     c += 1
 
     def on_task_check(self, widget, path):
         """What to do when checkbox is un/activated"""
-        # Inverser l'état de la case
+        # Toggle check box state :
         self.tdlist_store[path][0] = not self.tdlist_store[path][0]
         self.callback_percent()
 
@@ -406,24 +420,20 @@ class ToDoListBox(Gtk.Box):
         self.tdlist_store[path][1] = text
 
     def on_save_list(self, project_name):
-        """Save list in a project named file"""
-        file_out = open(share_dir + "/" + project_name, 'w')
-        for row in self.tdlist_store:
-            # Ajout d'un retour à la ligne pour obtenir un fichier ligne à
-            # ligne
-            file_out.write(str(row[0]) + ", " + str(''.join(row[1])) + "\n")
-        file_out.close()
+        """Save list in a project named file,
+        tasks are written row by row in file, line by line"""
+        with open(share_dir + "/" + project_name, 'w') as file_out:
+            for row in self.tdlist_store:
+                file_out.write(str(row[0]) + ',' + str(''.join(row[1])) + "\n")
 
     def on_task_up(self):
         """Move selected task up"""
         selection = self.tdview.get_selection()
         self.tdlist_store, paths = selection.get_selected_rows()
-
-        # Obtenir le "TreeIter" des "rows" sélectionnés :
+        # Get selected task treeiter :
         for path in paths:
             iter = self.tdlist_store.get_iter(path)
-
-        # Déplacement :
+        # And move it before the previous iter :
         self.tdlist_store.move_before(iter,
                 self.tdlist_store.iter_previous(iter))
 
@@ -431,41 +441,35 @@ class ToDoListBox(Gtk.Box):
         """Move selected task up"""
         selection = self.tdview.get_selection()
         self.tdlist_store, paths = selection.get_selected_rows()
-
-        # Obtenir le "TreeIter" des "rows" sélectionnés :
+        # Get selected task treeiter :
         for path in paths:
             iter = self.tdlist_store.get_iter(path)
-
-        # Déplacement :
+        # And move it after the next iter :
         self.tdlist_store.move_after(iter,
                 self.tdlist_store.iter_next(iter))
 
     def on_row_delete(self):
         """Select line and remove it"""
-        # Obtenir "l'adresse" de(s) "row(s)" sélectionnés
-        # (sous forme d'un tuple(ListStore, "path" du "row")) :
+        # Get selected row coordinates
+        # (as a tuple(ListStore, "row path")) :
         selection = self.tdview.get_selection()
         self.tdlist_store, paths = selection.get_selected_rows()
-
-        # Obtenir le "TreeIter" des "rows" sélectionnés :
+        # Get selected task (row) treeiter :
         for path in paths:
             iter = self.tdlist_store.get_iter(path)
-
-        # Et on supprime le "row" référencé par l'iter obtenu :
+        # And remove it :
         self.tdlist_store.remove(iter)
 
     def on_launch_creation(self, parent_project):
-        """Show input box to create new task"""
-        # Instanciation d'un objet de la classe "InputWin"
-        # et définition de sa fonction de callback
+        """Show input box to create new task
+        defined by 'project_name'. The new task will be
+        created by the callback function"""
         self.ta = InputWin("Créer une nouvelle tâche dans « " + parent_project
                            + " »", self.on_create_new)
         self.ta.show()
 
     def on_create_new(self, text):
-        """Append task to ListStore"""
-        # L'objet de création de tâche renvoie une valeur
-        # qu'on ajoute en fin du ListStore :
+        """Append task at the end of ListStore"""
         self.tdlist_store.insert_with_valuesv(-1, [1], [text])
         self.ta.close()
 
@@ -477,36 +481,33 @@ class InputWin(Gtk.Window):
         Gtk.Window.__init__(self, title=title)
         self.callback = callback
 
-        # Paramètre de taille et esthétiques :
+        # Inputbox size params :
         self.set_size_request(500, 70)
         self.set_border_width(10)
 
-        # Instanciation d'une boîte organisant les éléments créés ci-dessous :
+        # Create main container:
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
-        self.add(box)  # Ajout de la boîte à la fenêtre maîtresse
+        self.add(box)
 
-        # Instanciation d'une boîte de saisie :
+        # Create input box :
         self.object_entry = Gtk.Entry()
-        self.object_entry.set_text("Nouvel élément")  # Texte par défaut
-        # Boîte de saisie bien entendu éditable par défaut
+        self.object_entry.set_text("Nouvel élément")
+        # Make inputbox editable :
         self.object_entry.set_property("editable", True)
-        # La touche <Entrée> lance la fonction de création :
+        # Allow <Entrée> button to launch action :
         self.object_entry.connect("activate", self.on_create_object)
-        # Ajout de la boîte de saisie au conteneur "box" :
         box.pack_start(self.object_entry, True, True, 0)
 
-        # Instanciation d'un bouton permettant de valider l'entrée saisie :
+        # This button launch the action :
         self.object_create_button = Gtk.Button("Créer")
-        # Au clic, lancer fonction de création
         self.object_create_button.connect("clicked", self.on_create_object)
-        # Ajout du bouton au conteneur "box"
         box.pack_start(self.object_create_button, True, True, 1)
 
         self.show_all()
 
     def on_create_object(self, button):
-        """Send entry text to parent class object (here : HeaderBarWindow)"""
-        # Envoi de cette valeur à la fonction de callback définie
+        """Send entry text to parent class object (here : HeaderBarWindow)
+        callback function"""
         self.callback(self.object_entry.get_text())
 
 
@@ -514,21 +515,17 @@ class ConfirmDialog(Gtk.Dialog):
     """A generic yes/no dialog"""
 
     def __init__(self, parent, label):
-        # Instantiation du modèle depuis la classe parente :
         Gtk.Dialog.__init__(self, "Confirmation", parent, 0,
                             (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
                              Gtk.STOCK_OK, Gtk.ResponseType.OK))
 
-        # Paramètres de taille par défaut :
+        # Dialog box size params :
         self.set_default_size(150, 80)
-
-        # Ajouter label défini par la fonction appelante :
+        # Label text is set by parent calling function :
         self.label = Gtk.Label(label)
-
-        # Box = le contenu du widget dialog :
         box = self.get_content_area()
-        box.set_border_width(10)  # Pour faire plus joli
-        box.add(self.label)  # Ajout du label
+        box.set_border_width(10)
+        box.add(self.label)
 
         self.show_all()
 
