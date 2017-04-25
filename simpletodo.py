@@ -13,7 +13,7 @@ class HeaderBarWindow(Gtk.Window):
 
     def __init__(self):
         Gtk.Window.__init__(self, title="Simple Todo")
-        self.set_border_width(10)
+        self.set_border_width(5)
         self.set_default_size(650, 380)
         # self.set_icon_from_file(
         # "/home/sogal/Projets/simpletodo/simpletodo.png")
@@ -70,8 +70,11 @@ class HeaderBarWindow(Gtk.Window):
         i1.connect("activate", self.rename_prj_dialog)
         i2 = Gtk.MenuItem("Enregistrer")
         i2.connect("activate", self.on_save_notebook)
+        i3 = Gtk.MenuItem("À propos")
+        i3.connect("activate", self.show_about_dialog)
         menu_entries.append(i1)
         menu_entries.append(i2)
+        menu_entries.append(i3)
         menu_entries.show_all()
         prj_menu.set_popup(menu_entries)
         prj_menu.show_all()
@@ -93,6 +96,7 @@ class HeaderBarWindow(Gtk.Window):
 
         # Below notebook, add tasks management buttons box :
         self.buttons_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        self.buttons_box.set_margin_top(5)
         self.main_box.add(self.buttons_box)
 
         # Create tasks management buttons :
@@ -115,11 +119,11 @@ class HeaderBarWindow(Gtk.Window):
                                  self.on_edit_active)
         self.switch_edit.set_active(False)  # Switch not active by default
 
-        self.buttons_box.pack_start(self.switch_label, True, True, 0)
-        self.buttons_box.pack_start(self.switch_edit, True, True, 0)
+        self.buttons_box.pack_start(self.switch_label, True, True, 5)
+        self.buttons_box.pack_start(self.switch_edit, True, True, 5)
         for i, button in enumerate(self.buttons):
             # Pack each button on the right :
-            self.buttons_box.pack_start(self.buttons[i], True, False, 0)
+            self.buttons_box.pack_start(self.buttons[i], True, True, 10)
 
         # Add task order mgt buttons :
         self.task_up = Gtk.Button()
@@ -127,7 +131,7 @@ class HeaderBarWindow(Gtk.Window):
                 Gtk.IconSize.BUTTON)
         self.task_up.set_image(img)
         self.task_up.connect("clicked", self.on_sel_action)
-        self.buttons_box.pack_start(self.task_up, True, True, 0)
+        self.buttons_box.pack_start(self.task_up, True, True, 10)
         self.task_down = Gtk.Button()
         img = Gtk.Image.new_from_icon_name("go-down-symbolic",
                 Gtk.IconSize.BUTTON)
@@ -172,7 +176,7 @@ class HeaderBarWindow(Gtk.Window):
     def on_new_tab(self, text):
         """Create a new page from TodoListBox class,
         name is set from project creation dialog"""
-        newpage = ToDoListBox()
+        newpage = ToDoListBox(self.get_percent_done)
         self.tnotebook.append_page(newpage, Gtk.Label(text))
         self.tnotebook.show_all()
         self.pjr_name_input.close()
@@ -279,7 +283,6 @@ class HeaderBarWindow(Gtk.Window):
             self.get_current_child().sel.set_mode(Gtk.SelectionMode.SINGLE)
         else:  # If switch becomes inactive, forbid selection...
             # and deactivate "Supprimer" button :
-            #~ self.buttons[1].disconnect_by_func(self.on_sel_action)
             self.get_current_child().sel.set_mode(Gtk.SelectionMode.NONE)
             self.buttons[1].set_sensitive(False)
             self.task_up.set_sensitive(False)
@@ -309,12 +312,17 @@ class HeaderBarWindow(Gtk.Window):
         else:
             self.switch_edit.set_active(False)
 
+    def show_about_dialog(self, *args):
+        """Show the about dialog, astonishing isn't it ?"""
+        AboutDialog()
+
+
 class TaskNoteBook(Gtk.Notebook):
     """ Initialize custom Notebook class instance """
 
     def __init__(self, callback):
         Gtk.Notebook.__init__(self)
-        self.set_border_width(3)
+        self.set_border_width(0)
 
         # If there is no project file in app data dir, create empty project
         # and create its file on disk :
@@ -529,6 +537,42 @@ class ConfirmDialog(Gtk.Dialog):
 
         self.show_all()
 
+
+class AboutDialog(Gtk.AboutDialog):
+    """Dialog showing tips and info about the app"""
+    
+    def __init__(self):
+        Gtk.AboutDialog.__init__(self)
+        self.set_icon_name("gtg")
+        self.set_transient_for(win)
+        self.set_modal(True)
+        
+        self.set_authors(["Sébastien POHER"])
+        self.set_comments("""SimpleTodo est un gestionnaire
+de tâches simple avec onglets.
+Il permet de gérer des projets et de réordonner simplement les tâches.""")
+        self.set_copyright("Copyright © Sébastien Poher")
+        self.set_license("""
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 3 of the License, or
+(at your option) any later version.
+ 
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+MA 02110-1301, USA.""")
+        self.set_program_name("SimpleTodo")
+        self.set_version("1.2b")
+        self.set_website("https://code.eveha.fr/sebastien.poher/simpleTodo")
+
+        self.show_all()
+        
 
 tdlist = []
 share_dir = os.path.expanduser('~/.local/share/simpletodo')
