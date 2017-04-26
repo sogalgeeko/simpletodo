@@ -233,10 +233,13 @@ class HeaderBarWindow(Gtk.Window):
         self.tnotebook.set_tab_label_text(self.get_current_child(), text)
         self.new_name_input.close()
 
-    def on_save_notebook(self, widget):
+    def on_save_notebook(self, *args):
         """Save current (with focus) list"""
-        # TODO : on_save_notebook should save ALL pages
-        self.get_current_child().on_save_list(self.get_project_name())
+        i = 0
+        for child in self.tnotebook:
+            self.tnotebook.set_current_page(i)
+            child.on_save_list(self.get_project_name())
+            i += 1
 
     def on_del_project(self, tnotebook):
         """Remove page from notebook"""
@@ -267,8 +270,8 @@ class HeaderBarWindow(Gtk.Window):
         elif widget.get_label() == "Supprimer":
             self.get_current_child().on_row_delete()
         elif widget.get_label() == "Quitter":
-            self.get_current_child().on_save_list(project_name)
-            Gtk.main_quit()
+                self.on_save_notebook()
+                Gtk.main_quit()
         elif widget == self.task_up:
             self.get_current_child().on_task_up()
         elif widget == self.task_down:
@@ -440,15 +443,7 @@ class ToDoListBox(Gtk.Box):
                 c +=1
         return c
 
-    def on_move_task_to_file(self, target):
-        """Remove task from current project and add it to
-        the target project"""
-        state = self.get_selected_task()[0]
-        task = self.get_selected_task()[1]
-        with open(share_dir + "/" + str(target), 'w') as f:
-            f.write(str(state) + "," + task)
-
-    def on_move_task_to_list(self, text):
+     def on_move_task_to_list(self, text):
         task = text[1]
         self.tdlist_store.insert_with_valuesv(-1, [1], [task])
 
