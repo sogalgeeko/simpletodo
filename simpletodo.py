@@ -69,13 +69,16 @@ class HeaderBarWindow(Gtk.Window):
         menu_entries = Gtk.Menu()
         i1 = Gtk.MenuItem("Renommer...")
         i1.connect("activate", self.rename_prj_dialog)
-        i2 = Gtk.MenuItem("Enregistrer")
-        i2.connect("activate", self.on_save_notebook)
-        i3 = Gtk.MenuItem("À propos")
-        i3.connect("activate", self.show_about_dialog)
+        i2 = Gtk.MenuItem("Cloner...")
+        i2.connect("activate", self.clone_project_dialog)
+        i3 = Gtk.MenuItem("Enregistrer")
+        i3.connect("activate", self.on_save_notebook)
+        i4 = Gtk.MenuItem("À propos")
+        i4.connect("activate", self.show_about_dialog)
         menu_entries.append(i1)
         menu_entries.append(i2)
         menu_entries.append(i3)
+        menu_entries.append(i4)
         menu_entries.show_all()
         prj_menu.set_popup(menu_entries)
         prj_menu.show_all()
@@ -209,7 +212,7 @@ class HeaderBarWindow(Gtk.Window):
     def new_project_dialog(self, tnotebook):
         """Launch project creation dialog
         initialize input window with 'on_new_tab' as callback function"""
-        self.pjr_name_input = InputWin("Nouveau projet", self.on_new_tab)
+        self.pjr_name_input = InputWin("Nouveau projet", self.on_new_tab, None)
         self.pjr_name_input.show()
 
     def on_new_tab(self, text, *args):
@@ -226,6 +229,29 @@ class HeaderBarWindow(Gtk.Window):
         self.tnotebook.set_tab_reorderable(newpage, True)
         # And add it to "move task" comboxbox :
         self.projects_cbox.append(None, text)
+
+    def clone_project_dialog(self, tnotebook):
+        """Launch project cloning dialog
+        initialize input window with 'clone_project' as callback function"""
+        self.pjr_name_input = InputWin(
+                    "Cloner ce projet vers...", self.on_clone_project, None)
+        self.pjr_name_input.show()
+        
+    def on_clone_project(self, text, *args):
+        """Duplicate a project, create a new file with "-COPIE" suffix"""
+        newpage = ToDoListBox(self.update_percent_on_check)
+        current_project = self.get_project_name()
+        self.tnotebook.append_page(newpage, Gtk.Label(text))
+        self.tnotebook.show_all()
+        self.pjr_name_input.close()
+        self.tnotebook.set_current_page(-1)
+        self.get_current_child().on_startup_file_load(current_project)
+        # When project is created and named, create its file on disk :
+        newpage.project_name = self.tnotebook.get_tab_label_text(newpage)
+        newpage.on_save_list(newpage.project_name)
+        self.tnotebook.set_tab_reorderable(newpage, True)
+        # And add it to "move task" comboxbox :
+        self.projects_cbox.append(None, text)        
 
     def rename_prj_dialog(self, tnotebook):
         """Open InputWin class instance to rename project,
