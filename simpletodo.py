@@ -191,7 +191,7 @@ class HeaderBarWindow(Gtk.Window):
         based on presence of 'True' in child's tdlist_store"""
         target_child = locals()['args'][2]
         percent_done = self.tnotebook.get_nth_page(
-                    target_child).get_percent_done()
+            target_child).get_percent_done()
         self.percent_label.set_text(str(percent_done) + "%")
 
     def update_percent_on_check(self):
@@ -234,9 +234,9 @@ class HeaderBarWindow(Gtk.Window):
         """Launch project cloning dialog
         initialize input window with 'clone_project' as callback function"""
         self.pjr_name_input = InputWin(
-                    "Cloner ce projet vers...", self.on_clone_project, None)
+            "Cloner ce projet vers...", self.on_clone_project, None)
         self.pjr_name_input.show()
-        
+
     def on_clone_project(self, text, *args):
         """Duplicate a project, create a new file with "-COPIE" suffix"""
         newpage = ToDoListBox(self.update_percent_on_check)
@@ -251,7 +251,7 @@ class HeaderBarWindow(Gtk.Window):
         newpage.on_save_list(newpage.project_name)
         self.tnotebook.set_tab_reorderable(newpage, True)
         # And add it to "move task" comboxbox :
-        self.projects_cbox.append(None, text)        
+        self.projects_cbox.append(None, text)
 
     def rename_prj_dialog(self, tnotebook):
         """Open InputWin class instance to rename project,
@@ -312,8 +312,8 @@ class HeaderBarWindow(Gtk.Window):
         elif widget.get_label() == "Supprimer":
             self.get_current_child().on_row_delete(self.update_percent_on_check)
         elif widget.get_label() == "Quitter":
-                self.on_save_notebook()
-                Gtk.main_quit()
+            self.on_save_notebook()
+            Gtk.main_quit()
         elif widget == self.task_up:
             self.get_current_child().on_task_up()
         elif widget == self.task_down:
