@@ -121,9 +121,10 @@ class HeaderBarWindow(Gtk.Window):
 
         self.buttons_box.pack_start(self.switch_label, True, True, 5)
         self.buttons_box.pack_start(self.switch_edit, True, True, 5)
-        for i, button in enumerate(self.buttons):
+        for i, button in enumerate(self.buttons[:1]):
             # Pack each button on the right :
-            self.buttons_box.pack_start(self.buttons[i], True, True, 10)
+            self.buttons_box.pack_start(self.buttons[i], True, True, 5)
+        self.buttons_box.pack_end(self.buttons[2], True, True, 0)
 
         # Add task order mgt buttons :
         self.task_up = Gtk.Button()
@@ -146,6 +147,7 @@ class HeaderBarWindow(Gtk.Window):
         self.projects_cbox = Gtk.ComboBoxText()
         for project_name in os.listdir(share_dir):
             self.projects_cbox.append_text(project_name)
+        self.projects_cbox.set_margin_end(5)
         self.buttons_box.pack_start(label, True, True, 0)
         self.buttons_box.pack_end(self.projects_cbox, True, True, 0)
 
@@ -168,6 +170,27 @@ class HeaderBarWindow(Gtk.Window):
                       self.accel_edit_mode_on)
         self.add_accel_group(accel)
 
+    def get_project_name(self):
+        """Returns the project name"""
+        page_index = self.tnotebook.get_current_page()
+        child = self.tnotebook.get_nth_page(page_index)
+        return str(self.tnotebook.get_tab_label_text(child))
+
+    def get_current_child(self):
+        """ Returns the current todolist """
+        page_index = self.tnotebook.get_current_page()
+        return self.tnotebook.get_nth_page(page_index)
+  
+    def get_percent_done(self, **kwargs):
+        """Calculate percentage of done tasks
+        based on presence of 'True' in child's tdlist_store"""
+        tasks_total = self.get_current_child().get_tasks_amount()
+        if tasks_total != 0:
+            tasks_done = self.get_current_child().get_tasks_done()
+
+            percent_done = int(tasks_done * 100 / tasks_total)
+            self.percent_label.set_text(str(percent_done) + "%")
+                
     def on_page_next(self, tnotebook):
         """Switch to next tab"""
         self.tnotebook.next_page()
@@ -176,25 +199,13 @@ class HeaderBarWindow(Gtk.Window):
         """Switch to previous tab"""
         self.tnotebook.prev_page()
 
-    def launch_task_move(self, *args):
-        """Move the selected task by moving its content
-        to target then removing it"""
-        task_content = self.get_current_child().get_selected_task()
-        self.get_current_child().on_row_delete()
-        for child in self.tnotebook:
-            project_name = self.tnotebook.get_tab_label_text(child)
-            page_index = self.tnotebook.page_num(child)
-            if project_name == self.projects_cbox.get_active_text():
-                self.tnotebook.set_current_page(page_index)
-                self.get_current_child().on_move_task_to_list(task_content)
-
     def new_project_dialog(self, tnotebook):
         """Launch project creation dialog :
         initialize input window with 'on_new_tab' as callback function"""
         self.pjr_name_input = InputWin("Nouveau projet", self.on_new_tab)
         self.pjr_name_input.show()
 
-    def on_new_tab(self, text):
+    def on_new_tab(self, text, *args):
         """Create a new page from TodoListBox class,
         name is set from project creation dialog"""
         newpage = ToDoListBox(self.get_percent_done)
@@ -215,7 +226,7 @@ class HeaderBarWindow(Gtk.Window):
                                        self.get_project_name() + " »",
                                        self.on_rename_project)
 
-    def on_rename_project(self, text):
+    def on_rename_project(self, text, *args):
         """Change tab label (rename project)"""
         os.rename(share_dir + "/" + self.get_project_name(),
                   share_dir + "/" + text)
@@ -226,25 +237,6 @@ class HeaderBarWindow(Gtk.Window):
         """Save current (with focus) list"""
         # TODO : on_save_notebook should save ALL pages
         self.get_current_child().on_save_list(self.get_project_name())
-
-    def get_percent_done(self, **kwargs):
-        """Calculate percentage of done tasks
-        based on presence of 'True' in project file content"""
-        project_name = self.get_project_name()
-        self.get_current_child().on_save_list(project_name)
-        tasks_list = []
-        tasks_total = 0
-        with open(share_dir + "/" + project_name, 'r') as file:
-            for line in file:
-                tasks_total += 1
-                line = line.strip().split(',')
-                tasks_list.append(line)
-        tasks_done = 0
-        for i in tasks_list:
-            tasks_done += i.count('True')
-
-        percent_done = int(tasks_done * 100 / tasks_total)
-        self.percent_label.set_text(str(percent_done) + "%")
 
     def on_del_project(self, tnotebook):
         """Remove page from notebook"""
@@ -264,17 +256,6 @@ class HeaderBarWindow(Gtk.Window):
             dialog.destroy()
         else:
             dialog.destroy()
-
-    def get_project_name(self):
-        """Returns the project name"""
-        page_index = self.tnotebook.get_current_page()
-        child = self.tnotebook.get_nth_page(page_index)
-        return str(self.tnotebook.get_tab_label_text(child))
-
-    def get_current_child(self):
-        """ Returns the current todolist """
-        page_index = self.tnotebook.get_current_page()
-        return self.tnotebook.get_nth_page(page_index)
 
     def on_sel_action(self, widget):
         """ Launch action depending on clicked button """
@@ -322,6 +303,19 @@ class HeaderBarWindow(Gtk.Window):
             notebook.get_nth_page(page_num).sel.set_mode(
                 Gtk.SelectionMode.NONE)
         self.percent_label.set_text("")
+
+    def launch_task_move(self, *args):
+        """Move the selected task by moving its content
+        to target then removing it"""
+        task_content = self.get_current_child().get_selected_task()
+        if task_content:
+            self.get_current_child().on_row_delete()
+            for child in self.tnotebook:
+                project_name = self.tnotebook.get_tab_label_text(child)
+                page_index = self.tnotebook.page_num(child)
+                if project_name == self.projects_cbox.get_active_text():
+                    self.tnotebook.set_current_page(page_index)
+                    self.get_current_child().on_move_task_to_list(task_content)
 
     def accel_new_task(self, *args):
         """Define action to perform on keyboard shortcut,
@@ -419,14 +413,32 @@ class ToDoListBox(Gtk.Box):
         self.set_child_packing(self.scrollable_treelist, True, True, 0, 0)
 
     def get_selected_task(self):
-        # TODO : insure that something is selected (same for remove func)
         selection = self.tdview.get_selection()
-        (model, pathlist) = selection.get_selected_rows()
-        for path in pathlist:
-            treeiter = model.get_iter(path)
-            state = model.get_value(treeiter, 0)
-            task = model.get_value(treeiter, 1)
-        return [str(state), str(task)]
+        try:
+            (model, pathlist) = selection.get_selected_rows()
+            for path in pathlist:
+                treeiter = model.get_iter(path)
+                state = model.get_value(treeiter, 0)
+                task = model.get_value(treeiter, 1)
+            return [str(state), str(task)]
+        except UnboundLocalError:
+            return False
+        
+    def get_tasks_amount(self):
+        """Returns the number of tasks in project"""
+        c = 0
+        for row in self.tdlist_store:
+            c += 1
+        return c
+        
+    def get_tasks_done(self):
+        """Returns the amount of completed tasks"""
+        c = 0
+        for row in self.tdlist_store:
+            (state, pathlist) = row
+            if state is True:
+                c +=1
+        return c
 
     def on_move_task_to_file(self, target):
         """Remove task from current project and add it to
@@ -505,15 +517,18 @@ class ToDoListBox(Gtk.Box):
 
     def on_row_delete(self):
         """Select line and remove it"""
-        # Get selected row coordinates
-        # (as a tuple(ListStore, "row path")) :
-        selection = self.tdview.get_selection()
-        self.tdlist_store, paths = selection.get_selected_rows()
-        # Get selected task (row) treeiter :
-        for path in paths:
-            iter = self.tdlist_store.get_iter(path)
-        # And remove it :
-        self.tdlist_store.remove(iter)
+        try:
+            # Get selected row coordinates
+            # (as a tuple(ListStore, "row path")) :
+            selection = self.tdview.get_selection()
+            self.tdlist_store, paths = selection.get_selected_rows()
+            # Get selected task (row) treeiter :
+            for path in paths:
+                iter = self.tdlist_store.get_iter(path)
+            # And remove it :
+            self.tdlist_store.remove(iter)
+        except UnboundLocalError:
+            return False
 
     def on_launch_creation(self, parent_project):
         """Show input box to create new task
