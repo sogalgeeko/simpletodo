@@ -443,7 +443,7 @@ class ToDoListBox(Gtk.Box):
                 c +=1
         return c
 
-     def on_move_task_to_list(self, text):
+    def on_move_task_to_list(self, text):
         task = text[1]
         self.tdlist_store.insert_with_valuesv(-1, [1], [task])
 
@@ -490,25 +490,31 @@ class ToDoListBox(Gtk.Box):
 
     def on_task_up(self):
         """Move selected task up"""
-        selection = self.tdview.get_selection()
-        self.tdlist_store, paths = selection.get_selected_rows()
-        # Get selected task treeiter :
-        for path in paths:
-            iter = self.tdlist_store.get_iter(path)
-        # And move it before the previous iter :
-        self.tdlist_store.move_before(iter,
-                                      self.tdlist_store.iter_previous(iter))
+        try :
+            selection = self.tdview.get_selection()
+            self.tdlist_store, paths = selection.get_selected_rows()
+            # Get selected task treeiter :
+            for path in paths:
+                iter = self.tdlist_store.get_iter(path)
+            # And move it before the previous iter :
+            self.tdlist_store.move_before(iter,
+                                          self.tdlist_store.iter_previous(iter))
+        except UnboundLocalError:
+            return False
 
     def on_task_down(self):
         """Move selected task up"""
-        selection = self.tdview.get_selection()
-        self.tdlist_store, paths = selection.get_selected_rows()
-        # Get selected task treeiter :
-        for path in paths:
-            iter = self.tdlist_store.get_iter(path)
-        # And move it after the next iter :
-        self.tdlist_store.move_after(iter,
-                                     self.tdlist_store.iter_next(iter))
+        try:
+            selection = self.tdview.get_selection()
+            self.tdlist_store, paths = selection.get_selected_rows()
+            # Get selected task treeiter :
+            for path in paths:
+                iter = self.tdlist_store.get_iter(path)
+            # And move it after the next iter :
+            self.tdlist_store.move_after(iter,
+                                         self.tdlist_store.iter_next(iter))
+        except UnboundLocalError:
+            return False
 
     def on_row_delete(self):
         """Select line and remove it"""
@@ -616,6 +622,7 @@ Ce programme est un logiciel libre, vous pouvez donc le redistribuer
 et/ou le modifier dans le respect des termes de GNU General Public License
 telle que publiée par la Free Software Foundation dans sa version 3
 ou ultérieure.""")
+        self.set_logo_icon_name("gtg")
         self.set_program_name("SimpleTodo")
         self.set_version("1.2b")
         self.set_website("https://code.eveha.fr/sebastien.poher/simpleTodo")
