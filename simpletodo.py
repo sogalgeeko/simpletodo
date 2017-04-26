@@ -259,7 +259,8 @@ class HeaderBarWindow(Gtk.Window):
         project tab label text"""
         self.new_name_input = InputWin("Renommer le projet « " +
                                        self.get_project_name() + " »",
-                                       self.on_rename_project)
+                                       self.on_rename_project,
+                                       self.update_percent_on_check)
 
     def on_rename_project(self, text, *args):
         """Change tab label (rename project)"""
@@ -365,7 +366,7 @@ class HeaderBarWindow(Gtk.Window):
         """Define action to perform on keyboard shortcut,
         here Ctrl + n launches task creation in active page list"""
         self.get_current_child().on_launch_creation(
-            self.get_project_name())
+            self.get_project_name(), self.update_percent_on_check)
 
     def accel_edit_mode_on(self, *args):
         """On keyboard shortcut, toggle switch state,
