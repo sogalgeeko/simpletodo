@@ -18,6 +18,7 @@ Un RPM est également disponible auprès de l'auteur pour une installation propr
 Au premier lancement, un projet par défaut est proposé, il est possible de le renommer via l'entrée de menu « Renommer... » puis d'y ajouter des tâches.
 Pour créer un nouveau projet, il suffit de cliquer sur le « + » dans la barre de titre.
 De même, pour supprimer un projet, il suffit de cliquer sur le « - ». Toutes les tâches du projets sont évidemment supprimées avec lui.
+Via le menu, il est également possible de cloner un projet. Une invite vous demande alors le nom à donner au clone.
 
 ***Gérer les tâches :***
 

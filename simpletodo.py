@@ -353,7 +353,7 @@ class HeaderBarWindow(Gtk.Window):
         to target then removing it"""
         task_content = self.get_current_child().get_selected_task()
         if task_content:
-            self.get_current_child().on_row_delete()
+            self.get_current_child().on_row_delete(self.update_percent_on_check)
             for child in self.tnotebook:
                 project_name = self.tnotebook.get_tab_label_text(child)
                 page_index = self.tnotebook.page_num(child)
