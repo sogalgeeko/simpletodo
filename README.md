@@ -26,7 +26,7 @@ Pour ajouter une tâche, il suffit de cliquer sur « Nouvelle tâche » puis
 La case à cocher devant la description de la tâches indique son état (finie / non finie).
 À chaque « coche » ou « décoche » d'une tâche, un indicateur de pourcentage accompli est mis à jour et affiché.
 
-Via le menu en bas à gauche, vous pouvez cocher ou décocher d'un clic l'ensemble des tâches de votre projet.
+Via le menu en bas à gauche, vous pouvez cocher, décocher ou inverser d'un clic l'état de l'ensemble des tâches de votre projet
 
 Pour éditer une tâche, il faut passer en mode édition (basculer l'état de l'interrupteur ou <Ctrl +e>).
 Dans ce mode vous pouvez :

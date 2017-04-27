@@ -11,8 +11,9 @@ from gi.repository import Gtk, Gdk, Gio
 class HeaderBarWindow(Gtk.ApplicationWindow):
     """ Initialize window with HeaderBar """
 
-    def __init__(self):
-        Gtk.ApplicationWindow.__init__(self, title="Simple Todo")
+    def __init__(self, *args, **kwargs):
+        super().__init__(title="Simple Todo", *args, **kwargs)
+        
         self.set_border_width(5)
         self.set_default_size(650, 380)
         # self.set_icon_from_file(
@@ -23,6 +24,11 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         headerb.set_show_close_button(False)
         headerb.props.title = "Simple Todo"
         self.set_titlebar(headerb)
+
+        # Some Gio params :
+        action = Gio.SimpleAction.new("project_dialog", None)
+        action.connect("activate", self.new_project_dialog)
+        self.add_action(action)
 
         # Box receiving project management buttons :
         navbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
@@ -114,8 +120,11 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         i1.connect("activate", self.on_tasks_check_all)
         i2 = Gtk.MenuItem("Décocher tous")
         i2.connect("activate", self.on_tasks_uncheck_all)
+        i3 = Gtk.MenuItem("Inverser tous")
+        i3.connect("activate", self.on_tasks_toggle_all)
         tasks_menu.append(i1)
         tasks_menu.append(i2)
+        tasks_menu.append(i3)
         tasks_menu_button.set_popup(tasks_menu)
         tasks_menu.show_all()
         self.buttons_box.pack_start(tasks_menu_button, True, True, 0)
@@ -235,8 +244,8 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
     def on_page_prev(self, tnotebook):
         """Switch to previous tab"""
         self.tnotebook.prev_page()
-
-    def new_project_dialog(self, tnotebook):
+    
+    def new_project_dialog(self, tnotebook, *args):
         """Launch project creation dialog
         initialize input window with 'on_new_tab' as callback function"""
         self.pjr_name_input = InputWin("Nouveau projet", self.on_new_tab, None)
@@ -268,6 +277,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         """Duplicate a project, create a new file with "-COPIE" suffix"""
         newpage = ToDoListBox(self.update_percent_on_check)
         current_project = self.get_project_name()
+        self.get_current_child().on_save_list(current_project)
         self.tnotebook.append_page(newpage, Gtk.Label(text))
         self.tnotebook.show_all()
         self.pjr_name_input.close()
@@ -298,11 +308,13 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
 
     def on_save_notebook(self, *args):
         """Save current (with focus) list"""
+        current_page = self.tnotebook.get_current_page()
         i = 0
         for child in self.tnotebook:
             self.tnotebook.set_current_page(i)
             child.on_save_list(self.get_project_name())
             i += 1
+        self.tnotebook.set_current_page(current_page)
 
     def on_del_project(self, tnotebook):
         """Remove page from notebook"""
@@ -338,10 +350,12 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
                 self.get_project_name(), self.update_percent_on_check)
             self.update_percent_on_check()
         elif widget == self.buttons[1]:
-            self.get_current_child().on_row_delete(self.update_percent_on_check)
+            self.get_current_child().on_row_delete(
+                                    self.update_percent_on_check)
         elif widget == self.buttons[2]:
-            self.on_save_notebook()
-            self.show_exit_dialog('delete-event')
+            if self.do_delete_event('delete-event') == False:
+                self.on_save_notebook()
+                app.quit()
         elif widget == self.task_up:
             self.get_current_child().on_task_up()
         elif widget == self.task_down:
@@ -381,7 +395,8 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         to target then removing it"""
         task_content = self.get_current_child().get_selected_task()
         if task_content:
-            self.get_current_child().on_row_delete(self.update_percent_on_check)
+            self.get_current_child().on_row_delete(
+                            self.update_percent_on_check)
             for child in self.tnotebook:
                 project_name = self.tnotebook.get_tab_label_text(child)
                 page_index = self.tnotebook.page_num(child)
@@ -398,6 +413,11 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         """Uncheck all tasks of current project"""
         self.get_current_child().check_all_tasks(
             self.get_project_name(), False)
+
+    def on_tasks_toggle_all(self, *args):
+        """Toggle all current project's tasks state"""
+        self.get_current_child().check_all_tasks(
+            self.get_project_name(), "Toggle")
 
     def accel_new_task(self, *args):
         """Define action to perform on keyboard shortcut,
@@ -417,7 +437,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         """Show the about dialog, astonishing isn't it ?"""
         AboutDialog()
         
-    def show_exit_dialog(self, event):
+    def do_delete_event(self, event):
         """Get user confirmation before leaving"""
         # Show our message dialog :
         d = Gtk.MessageDialog(transient_for=self,
@@ -429,10 +449,8 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
 
         # We only terminate when the user presses the OK button :
         if response == Gtk.ResponseType.OK:
-            print('Terminating...')
-            #~ return False
-            self.quit()
-
+            self.on_save_notebook()
+            return False
         # Otherwise we keep the application open :
         return True
 
@@ -593,9 +611,12 @@ class ToDoListBox(Gtk.Box):
             (current_state, task) = row
             iter = self.tdlist_store.get_iter(i)
             if new_state is False:
-                self.tdlist_store[i][0] = not self.tdlist_store[i][0]
-            else:
+                self.tdlist_store[i][0] = False
+            elif new_state is True:
                 self.tdlist_store.set(iter, 0, [new_state])
+            else:
+                self.tdlist_store[i][0] = not self.tdlist_store[i][0]
+                
         self.callback_percent()
 
     def on_task_edit(self, widget, path, text):
@@ -619,7 +640,7 @@ class ToDoListBox(Gtk.Box):
                 iter = self.tdlist_store.get_iter(path)
             # And move it before the previous iter :
             self.tdlist_store.move_before(iter,
-                                          self.tdlist_store.iter_previous(iter))
+                                    self.tdlist_store.iter_previous(iter))
         except UnboundLocalError:
             return False
 
@@ -676,7 +697,9 @@ class InputWin(Gtk.Window):
 
     def __init__(self, title, callback, update_percent):
         Gtk.Window.__init__(self, title=title)
-        self.set_transient_for(win)
+        self.set_transient_for(app.window)
+        self.props.modal = True
+        self.props.window_position = 4
         self.callback = callback
         self.update = update_percent
 
@@ -718,7 +741,8 @@ class ConfirmDialog(Gtk.Dialog):
         Gtk.Dialog.__init__(self, "Confirmation", parent, 0,
                             (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
                              Gtk.STOCK_OK, Gtk.ResponseType.OK))
-        self.set_transient_for(parent)
+        self.set_transient_for(app.window)
+        self.props.modal = True
         # Dialog box size params :
         self.set_default_size(150, 80)
         # Label text is set by parent calling function :
@@ -734,9 +758,9 @@ class AboutDialog(Gtk.AboutDialog):
     """Dialog showing tips and info about the app"""
 
     def __init__(self):
-        Gtk.AboutDialog.__init__(self)
+        super().__init__(self)
         self.set_icon_name("gtg")
-        self.set_transient_for(win)
+        self.set_transient_for(app.window)
         self.set_modal(True)
 
         self.set_authors(["Sébastien POHER"])
@@ -756,22 +780,55 @@ ou ultérieure.""")
 
         self.show_all()
 
+
+class Application(Gtk.Application):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, application_id="com.seb.SimpleTodo",
+                                flags=0, **kwargs)
+
+        self.window = None
+        self.show_menubar = True
+
+    def do_startup(self):
+        Gtk.Application.do_startup(self)
+
+        action = Gio.SimpleAction.new("about", None)
+        action.connect("activate", self.on_about)
+        self.add_action(action)
+
+        action = Gio.SimpleAction.new("quit", None)
+        action.connect("activate", self.on_quit)
+        self.add_action(action)
+
+        builder = Gtk.Builder.new_from_file("menu.ui")
+        self.set_app_menu(builder.get_object("app-menu"))
+
+    def do_activate(self):
+        # We only allow a single window and raise any existing ones
+        if not self.window:
+            # Windows are associated with the application
+            # when the last one is closed the application shuts down
+            self.window = HeaderBarWindow(application=self)
+
+        self.window.show_all()
+
+    def on_about(self, action, param):
+        about_dialog = AboutDialog()
+        about_dialog.present()
+
+    def on_quit(self, action, param):
+        self.quit()
+
+
 tdlist = []
 share_dir = os.path.expanduser('~/.local/share/simpletodo')
 if not os.path.isdir(share_dir):
     os.mkdir(share_dir)
 
-def on_start_app(app):
-    """Main function to start the program"""
-
-    win = HeaderBarWindow()
-    win.props.application = app
-    win.show_all()
-    
+  
 if __name__ == '__main__':
     # Create an app instance from the win instance :
-    app = Gtk.Application(application_id='com.sebpoher.SimpleTodo', flags=0)
-    app.connect('activate', on_start_app)
+    app = Application()
     app.run()
-    app.add_window(HeaderBarWindow())
     
