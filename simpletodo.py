@@ -104,18 +104,22 @@ class HeaderBarWindow(Gtk.Window):
         self.buttons_box.set_margin_top(5)
         self.main_box.add(self.buttons_box)
 
-        # Create tasks management buttons :
-        self.buttons = list()
-        for action in ["Nouvelle tâche",
-                       "Supprimer",
-                       "Quitter"]:
-            button = Gtk.Button(action)
-            self.buttons.append(button)
-            # Connect them all to an action define later by on_sel_action :
-            button.connect("clicked", self.on_sel_action)
-        # ... except "Supprimer" (toggled by "Édition")
-        self.buttons[1].disconnect_by_func(self.on_sel_action)
-
+        # Create tasks mgt menu:
+        tasks_menu_button = Gtk.MenuButton()
+        tasks_menu_icon = Gtk.Image.new_from_icon_name("view-more-symbolic",
+                                                    Gtk.IconSize.BUTTON)
+        tasks_menu_button.add(tasks_menu_icon)
+        tasks_menu = Gtk.Menu()
+        i1 = Gtk.MenuItem("Cocher tous")
+        i1.connect("activate", self.on_tasks_check_all)
+        i2 = Gtk.MenuItem("Décocher tous")
+        i2.connect("activate", self.on_tasks_uncheck_all)
+        tasks_menu.append(i1)
+        tasks_menu.append(i2)
+        tasks_menu_button.set_popup(tasks_menu)
+        tasks_menu.show_all()
+        self.buttons_box.pack_start(tasks_menu_button, True, True, 0)
+        
         # Create "Édition" mode switch:
         self.switch_label = Gtk.Label("Mode édition")
         self.switch_edit = Gtk.Switch()
@@ -123,13 +127,28 @@ class HeaderBarWindow(Gtk.Window):
         self.switch_edit.connect("notify::active",
                                  self.on_edit_active)
         self.switch_edit.set_active(False)  # Switch not active by default
+        
+        # Create tasks management buttons :
+        self.buttons = []
+        for i, icon in enumerate(["list-add-symbolic",
+                        "list-remove-symbolic",
+                        "system-shutdown-symbolic"]):
+            img = Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.BUTTON)
+            button = Gtk.Button()
+            self.buttons.append(button)
+            self.buttons[i].set_image(img)
+             # Connect them all to an action define later by on_sel_action :
+            button.connect("clicked", self.on_sel_action)
+        # ... except "Supprimer" (toggled by "Édition")
+        self.buttons[1].disconnect_by_func(self.on_sel_action)
 
         self.buttons_box.pack_start(self.switch_label, True, True, 5)
         self.buttons_box.pack_start(self.switch_edit, True, True, 5)
+        # Pack check_all/uncheck_all buttons on the left :
         for i, button in enumerate(self.buttons[:2]):
-            # Pack each button on the right :
-            self.buttons_box.pack_start(self.buttons[i], True, True, 5)
-        self.buttons_box.pack_end(self.buttons[2], True, True, 0)
+            self.buttons_box.pack_start(self.buttons[i], True, True, 0)
+        self.buttons[0].set_margin_end(5)
+        # Pack each button on the right :
 
         # Add task order mgt buttons :
         self.task_up = Gtk.Button()
@@ -154,7 +173,8 @@ class HeaderBarWindow(Gtk.Window):
             self.projects_cbox.append_text(project_name)
         self.projects_cbox.set_margin_end(5)
         self.buttons_box.pack_start(label, True, True, 0)
-        self.buttons_box.pack_end(self.projects_cbox, True, True, 0)
+        self.buttons_box.pack_start(self.projects_cbox, True, True, 0)
+        self.buttons_box.pack_end(self.buttons[2], True, True, 0)
 
         # As long as "Édition" mode not active,
         # some buttons remain inactive :
@@ -306,13 +326,13 @@ class HeaderBarWindow(Gtk.Window):
     def on_sel_action(self, widget):
         """ Launch action depending on clicked button """
         project_name = self.get_project_name()
-        if widget.get_label() == "Nouvelle tâche":
+        if widget == self.buttons[0]:
             self.get_current_child().on_launch_creation(
                 self.get_project_name(), self.update_percent_on_check)
             self.update_percent_on_check()
-        elif widget.get_label() == "Supprimer":
+        elif widget == self.buttons[1]:
             self.get_current_child().on_row_delete(self.update_percent_on_check)
-        elif widget.get_label() == "Quitter":
+        elif widget == self.buttons[2]:
             self.on_save_notebook()
             Gtk.main_quit()
         elif widget == self.task_up:
@@ -361,6 +381,16 @@ class HeaderBarWindow(Gtk.Window):
                 if project_name == self.projects_cbox.get_active_text():
                     self.tnotebook.set_current_page(page_index)
                     self.get_current_child().on_move_task_to_list(task_content)
+
+    def on_tasks_check_all(self, *args):
+        """Check all tasks of current project"""
+        self.get_current_child().check_all_tasks(
+            self.get_project_name(), True)
+            
+    def on_tasks_uncheck_all(self, *args):
+        """Uncheck all tasks of current project"""
+        self.get_current_child().check_all_tasks(
+            self.get_project_name(), False)
 
     def accel_new_task(self, *args):
         """Define action to perform on keyboard shortcut,
@@ -495,7 +525,7 @@ class ToDoListBox(Gtk.Box):
             return percent_done
         else:
             return 0
-
+            
     def on_move_task_to_list(self, text):
         """Insert moved task into selected tdlist_store"""
         task = text[1]
@@ -529,6 +559,17 @@ class ToDoListBox(Gtk.Box):
         """What to do when checkbox is un/activated"""
         # Toggle check box state :
         self.tdlist_store[path][0] = not self.tdlist_store[path][0]
+        self.callback_percent()
+
+    def check_all_tasks(self, project_name, new_state):
+        """Change task state according to variable"""
+        for i, row in enumerate(self.tdlist_store):
+            (current_state, task) = row
+            iter = self.tdlist_store.get_iter(i)
+            if new_state is False:
+                self.tdlist_store[i][0] = not self.tdlist_store[i][0]
+            else:
+                self.tdlist_store.set(iter, 0, [new_state])
         self.callback_percent()
 
     def on_task_edit(self, widget, path, text):
@@ -609,6 +650,7 @@ class InputWin(Gtk.Window):
 
     def __init__(self, title, callback, update_percent):
         Gtk.Window.__init__(self, title=title)
+        self.set_transient_for(win)
         self.callback = callback
         self.update = update_percent
 
@@ -650,7 +692,7 @@ class ConfirmDialog(Gtk.Dialog):
         Gtk.Dialog.__init__(self, "Confirmation", parent, 0,
                             (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
                              Gtk.STOCK_OK, Gtk.ResponseType.OK))
-
+        self.set_transient_for(win)
         # Dialog box size params :
         self.set_default_size(150, 80)
         # Label text is set by parent calling function :
