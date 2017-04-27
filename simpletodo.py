@@ -5,14 +5,14 @@ import os
 import sys
 import gi
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, Gdk
+from gi.repository import Gtk, Gdk, Gio
 
 
-class HeaderBarWindow(Gtk.Window):
+class HeaderBarWindow(Gtk.ApplicationWindow):
     """ Initialize window with HeaderBar """
 
     def __init__(self):
-        Gtk.Window.__init__(self, title="Simple Todo")
+        Gtk.ApplicationWindow.__init__(self, title="Simple Todo")
         self.set_border_width(5)
         self.set_default_size(650, 380)
         # self.set_icon_from_file(
@@ -20,7 +20,7 @@ class HeaderBarWindow(Gtk.Window):
         self.set_icon_name("gtg")
 
         headerb = Gtk.HeaderBar()
-        headerb.set_show_close_button(True)
+        headerb.set_show_close_button(False)
         headerb.props.title = "Simple Todo"
         self.set_titlebar(headerb)
 
@@ -148,8 +148,7 @@ class HeaderBarWindow(Gtk.Window):
         for i, button in enumerate(self.buttons[:2]):
             self.buttons_box.pack_start(self.buttons[i], True, True, 0)
         self.buttons[0].set_margin_end(5)
-        # Pack each button on the right :
-
+        
         # Add task order mgt buttons :
         self.task_up = Gtk.Button()
         img = Gtk.Image.new_from_icon_name("go-up-symbolic",
@@ -182,6 +181,14 @@ class HeaderBarWindow(Gtk.Window):
         self.task_up.set_sensitive(False)
         self.task_down.set_sensitive(False)
         self.projects_cbox.set_sensitive(False)
+        
+        # Add tooltips to buttons that use icon :
+        self.buttons[0].set_tooltip_text("Nouvelle tâche")
+        self.buttons[1].set_tooltip_text("Supprimer la tâche")
+        self.buttons[2].set_tooltip_text("Enregistrer et fermer")
+        tasks_menu_button.set_tooltip_text("Gérer les tâches")
+        self.task_up.set_tooltip_text("Déplacer la tâche vers le haut")
+        self.task_down.set_tooltip_text("Déplacer la tâche vers le bas")
 
         # Keyboard shortcuts :
         accel = Gtk.AccelGroup()
@@ -334,7 +341,7 @@ class HeaderBarWindow(Gtk.Window):
             self.get_current_child().on_row_delete(self.update_percent_on_check)
         elif widget == self.buttons[2]:
             self.on_save_notebook()
-            Gtk.main_quit()
+            self.show_exit_dialog('delete-event')
         elif widget == self.task_up:
             self.get_current_child().on_task_up()
         elif widget == self.task_down:
@@ -409,6 +416,25 @@ class HeaderBarWindow(Gtk.Window):
     def show_about_dialog(self, *args):
         """Show the about dialog, astonishing isn't it ?"""
         AboutDialog()
+        
+    def show_exit_dialog(self, event):
+        """Get user confirmation before leaving"""
+        # Show our message dialog :
+        d = Gtk.MessageDialog(transient_for=self,
+                              modal=True,
+                              buttons=Gtk.ButtonsType.OK_CANCEL)
+        d.props.text = "Vraiment quitter ?"
+        response = d.run()
+        d.destroy()
+
+        # We only terminate when the user presses the OK button :
+        if response == Gtk.ResponseType.OK:
+            print('Terminating...')
+            #~ return False
+            self.quit()
+
+        # Otherwise we keep the application open :
+        return True
 
 
 class TaskNoteBook(Gtk.Notebook):
@@ -692,7 +718,7 @@ class ConfirmDialog(Gtk.Dialog):
         Gtk.Dialog.__init__(self, "Confirmation", parent, 0,
                             (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
                              Gtk.STOCK_OK, Gtk.ResponseType.OK))
-        self.set_transient_for(win)
+        self.set_transient_for(parent)
         # Dialog box size params :
         self.set_default_size(150, 80)
         # Label text is set by parent calling function :
@@ -730,14 +756,22 @@ ou ultérieure.""")
 
         self.show_all()
 
-
 tdlist = []
 share_dir = os.path.expanduser('~/.local/share/simpletodo')
 if not os.path.isdir(share_dir):
     os.mkdir(share_dir)
-win = HeaderBarWindow()
-win.connect("delete-event", Gtk.main_quit)
-win.show_all()
-Gtk.main()
 
-sys.exit(0)
+def on_start_app(app):
+    """Main function to start the program"""
+
+    win = HeaderBarWindow()
+    win.props.application = app
+    win.show_all()
+    
+if __name__ == '__main__':
+    # Create an app instance from the win instance :
+    app = Gtk.Application(application_id='com.sebpoher.SimpleTodo', flags=0)
+    app.connect('activate', on_start_app)
+    app.run()
+    app.add_window(HeaderBarWindow())
+    
