@@ -5,7 +5,7 @@ import os
 import sys
 import gi
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, Gdk, Gio
+from gi.repository import Gtk, Gdk, GdkPixbuf, Gio
 
 
 class HeaderBarWindow(Gtk.ApplicationWindow):
@@ -16,9 +16,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
 
         self.set_border_width(5)
         self.set_default_size(650, 380)
-        # self.set_icon_from_file(
-        # "/home/sogal/Projets/simpletodo/simpletodo.png")
-        self.set_icon_name("gtg")
+        self.set_icon_name("simpletodo")
 
         headerb = Gtk.HeaderBar()
         headerb.set_show_close_button(False)
@@ -761,7 +759,8 @@ class AboutDialog(Gtk.AboutDialog):
 
     def __init__(self):
         super().__init__(self)
-        self.set_icon_name("gtg")
+        self.set_icon_name("simpletodo")
+        logo = GdkPixbuf.Pixbuf.new_from_file("simpletodo-96px.png")
         self.set_transient_for(app.window)
         self.set_modal(True)
 
@@ -775,9 +774,9 @@ Ce programme est un logiciel libre, vous pouvez donc le redistribuer
 et/ou le modifier dans le respect des termes de GNU General Public License
 telle que publiée par la Free Software Foundation dans sa version 3
 ou ultérieure.""")
-        self.set_logo_icon_name("gtg")
+        self.set_logo(logo)
         self.set_program_name("SimpleTodo")
-        self.set_version("1.3b")
+        self.set_version("1.4")
         self.set_website("https://code.eveha.fr/sebastien.poher/simpleTodo")
 
         self.show_all()
