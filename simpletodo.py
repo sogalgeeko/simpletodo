@@ -818,6 +818,7 @@ class Application(Gtk.Application):
         about_dialog.present()
 
     def on_quit(self, action, param):
+        self.window.on_save_notebook()
         self.quit()
 
 
