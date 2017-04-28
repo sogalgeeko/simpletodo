@@ -13,7 +13,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
 
     def __init__(self, *args, **kwargs):
         super().__init__(title="Simple Todo", *args, **kwargs)
-        
+
         self.set_border_width(5)
         self.set_default_size(650, 380)
         # self.set_icon_from_file(
@@ -113,7 +113,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         # Create tasks mgt menu:
         tasks_menu_button = Gtk.MenuButton()
         tasks_menu_icon = Gtk.Image.new_from_icon_name("view-more-symbolic",
-                                                    Gtk.IconSize.BUTTON)
+                                                       Gtk.IconSize.BUTTON)
         tasks_menu_button.add(tasks_menu_icon)
         tasks_menu = Gtk.Menu()
         i1 = Gtk.MenuItem("Cocher tous")
@@ -128,7 +128,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         tasks_menu_button.set_popup(tasks_menu)
         tasks_menu.show_all()
         self.buttons_box.pack_start(tasks_menu_button, True, True, 0)
-        
+
         # Create "Édition" mode switch:
         self.switch_label = Gtk.Label("Mode édition")
         self.switch_edit = Gtk.Switch()
@@ -136,17 +136,17 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         self.switch_edit.connect("notify::active",
                                  self.on_edit_active)
         self.switch_edit.set_active(False)  # Switch not active by default
-        
+
         # Create tasks management buttons :
         self.buttons = []
         for i, icon in enumerate(["list-add-symbolic",
-                        "list-remove-symbolic",
-                        "system-shutdown-symbolic"]):
+                                  "list-remove-symbolic",
+                                  "system-shutdown-symbolic"]):
             img = Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.BUTTON)
             button = Gtk.Button()
             self.buttons.append(button)
             self.buttons[i].set_image(img)
-             # Connect them all to an action define later by on_sel_action :
+            # Connect them all to an action define later by on_sel_action :
             button.connect("clicked", self.on_sel_action)
         # ... except "Supprimer" (toggled by "Édition")
         self.buttons[1].disconnect_by_func(self.on_sel_action)
@@ -157,7 +157,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         for i, button in enumerate(self.buttons[:2]):
             self.buttons_box.pack_start(self.buttons[i], True, True, 0)
         self.buttons[0].set_margin_end(5)
-        
+
         # Add task order mgt buttons :
         self.task_up = Gtk.Button()
         img = Gtk.Image.new_from_icon_name("go-up-symbolic",
@@ -190,7 +190,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         self.task_up.set_sensitive(False)
         self.task_down.set_sensitive(False)
         self.projects_cbox.set_sensitive(False)
-        
+
         # Add tooltips to buttons that use icon :
         self.buttons[0].set_tooltip_text("Nouvelle tâche")
         self.buttons[1].set_tooltip_text("Supprimer la tâche")
@@ -244,7 +244,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
     def on_page_prev(self, tnotebook):
         """Switch to previous tab"""
         self.tnotebook.prev_page()
-    
+
     def new_project_dialog(self, tnotebook, *args):
         """Launch project creation dialog
         initialize input window with 'on_new_tab' as callback function"""
@@ -333,7 +333,8 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
             self.tnotebook.remove_page(self.tnotebook.get_current_page())
             update_projects_cbox()
             if len(os.listdir(share_dir)) == 0:
-                self.tnotebook.page1 = ToDoListBox()
+                self.tnotebook.page1 = ToDoListBox(
+                    self.update_percent_on_check)
                 self.tnotebook.append_page(self.tnotebook.page1, Gtk.Label(
                     'Nouveau projet'))
                 self.tnotebook.page1.on_save_list('Nouveau projet')
@@ -351,7 +352,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
             self.update_percent_on_check()
         elif widget == self.buttons[1]:
             self.get_current_child().on_row_delete(
-                                    self.update_percent_on_check)
+                self.update_percent_on_check)
         elif widget == self.buttons[2]:
             if self.do_delete_event('delete-event') == False:
                 self.on_save_notebook()
@@ -396,7 +397,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         task_content = self.get_current_child().get_selected_task()
         if task_content:
             self.get_current_child().on_row_delete(
-                            self.update_percent_on_check)
+                self.update_percent_on_check)
             for child in self.tnotebook:
                 project_name = self.tnotebook.get_tab_label_text(child)
                 page_index = self.tnotebook.page_num(child)
@@ -408,7 +409,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         """Check all tasks of current project"""
         self.get_current_child().check_all_tasks(
             self.get_project_name(), True)
-            
+
     def on_tasks_uncheck_all(self, *args):
         """Uncheck all tasks of current project"""
         self.get_current_child().check_all_tasks(
@@ -436,7 +437,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
     def show_about_dialog(self, *args):
         """Show the about dialog, astonishing isn't it ?"""
         AboutDialog()
-        
+
     def do_delete_event(self, event):
         """Get user confirmation before leaving"""
         # Show our message dialog :
@@ -569,7 +570,7 @@ class ToDoListBox(Gtk.Box):
             return percent_done
         else:
             return 0
-            
+
     def on_move_task_to_list(self, text):
         """Insert moved task into selected tdlist_store"""
         task = text[1]
@@ -616,7 +617,7 @@ class ToDoListBox(Gtk.Box):
                 self.tdlist_store.set(iter, 0, [new_state])
             else:
                 self.tdlist_store[i][0] = not self.tdlist_store[i][0]
-                
+
         self.callback_percent()
 
     def on_task_edit(self, widget, path, text):
@@ -640,7 +641,8 @@ class ToDoListBox(Gtk.Box):
                 iter = self.tdlist_store.get_iter(path)
             # And move it before the previous iter :
             self.tdlist_store.move_before(iter,
-                                    self.tdlist_store.iter_previous(iter))
+                                          self.tdlist_store.iter_previous(
+                                              iter))
         except UnboundLocalError:
             return False
 
@@ -785,7 +787,7 @@ class Application(Gtk.Application):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, application_id="com.seb.SimpleTodo",
-                                flags=0, **kwargs)
+                         flags=0, **kwargs)
 
         self.window = None
         self.show_menubar = True
@@ -827,9 +829,8 @@ share_dir = os.path.expanduser('~/.local/share/simpletodo')
 if not os.path.isdir(share_dir):
     os.mkdir(share_dir)
 
-  
+
 if __name__ == '__main__':
     # Create an app instance from the win instance :
     app = Application()
     app.run()
-    
