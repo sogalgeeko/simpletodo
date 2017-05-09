@@ -777,7 +777,7 @@ ou ultérieure.""")
         self.set_logo(logo)
         self.set_program_name("SimpleTodo")
         self.set_version("1.4")
-        self.set_website("https://code.eveha.fr/sebastien.poher/simpleTodo")
+        self.set_website("https://git.volted.net/sogal/simpleTodo")
 
         self.show_all()
 
