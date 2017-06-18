@@ -15,7 +15,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         super().__init__(title="Simple Todo", *args, **kwargs)
 
         self.set_border_width(5)
-        #~ self.set_default_size(650, 380)
+        #~ self.set_default_size(850, 380)
         self.set_icon_name("simpletodo")
 
         headerb = Gtk.HeaderBar()
@@ -96,44 +96,50 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         self.add(self.main_box)
 
         # Add horizontal container for notebook and calendar :
-        self.second_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        self.second_box = Gtk.Grid()
         self.main_box.add(self.second_box)
 
         # Create notebook from class :
         self.tnotebook = TaskNoteBook(self.update_percent_on_check)
-        self.second_box.pack_start(self.tnotebook, True, True, 5)
+        self.second_box.add(self.tnotebook)
+        self.tnotebook.set_hexpand(True)
+        self.tnotebook.set_size_request(550, -1)
+        self.tnotebook.set_margin_end(5)
         self.tnotebook.popup_enable()
         self.tnotebook.set_scrollable(True)
         self.tnotebook.connect("switch-page", self.on_page_change)
         self.tnotebook.connect("switch-page", self.update_percent_on_change)
 
         # Create timebox for calendar and timer :
-        self.cal_time_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        self.second_box.pack_end(self.cal_time_box, False, False, 0)
+        self.cal_time_box = Gtk.Grid()
+        self.second_box.attach(self.cal_time_box, 1, 0, 1, 1)
         
         # Add calendar beside notebook :
         self.calendar = Gtk.Calendar()
         self.calendar.set_detail_height_rows = 5
         self.calendar.set_detail_width_rows = 5
-        self.cal_time_box.add(self.calendar)
+        self.calendar.set_margin_bottom(5)
+        self.cal_time_box.attach(self.calendar, 0, 0, 3, 1)
 
         # Add calendar control button :
         self.cal_button = Gtk.Button.new_with_label("Échéance pour la tâche")
-        self.cal_time_box.add(self.cal_button)
+        self.cal_button.set_margin_bottom(5)
+        self.cal_time_box.attach(self.cal_button, 1, 1, 1, 1)
+        self.cal_button.connect("clicked", self.get_cal_date)
 
         # Add timer and controls in a box below calendar :
-        self.timer_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        self.cal_time_box.add(self.timer_box)
         timer_start = Gtk.Button()
         timer_start_icon = Gtk.Image.new_from_icon_name("media-playback-start",
                                                         Gtk.IconSize.BUTTON)
         timer_start.add(timer_start_icon)
-        self.timer_box.pack_start(timer_start, True, True, 0)
+        self.cal_time_box.attach(timer_start, 0, 2, 1, 1)
+        timer_label = Gtk.Label("Timer")
+        self.cal_time_box.attach(timer_label, 1, 2, 1, 1)
         timer_pause = Gtk.Button()
         timer_pause_icon = Gtk.Image.new_from_icon_name("media-playback-pause",
                                                         Gtk.IconSize.BUTTON)
         timer_pause.add(timer_pause_icon)
-        self.timer_box.pack_start(timer_pause, True, True, 0)
+        self.cal_time_box.attach(timer_pause, 2, 2, 1, 1)
 
         # Below notebook, add tasks management buttons box :
         self.buttons_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
@@ -251,6 +257,11 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         """ Returns the current todolist """
         page_index = self.tnotebook.get_current_page()
         return self.tnotebook.get_nth_page(page_index)
+
+    def get_cal_date(self, widget):
+        """Returns selected date in calendar"""
+        year, month, day = self.calendar.get_date()
+        print(day, month+1, year, sep="/")
 
     def update_percent_on_change(self, *args):
         """Calculate percentage of done tasks
