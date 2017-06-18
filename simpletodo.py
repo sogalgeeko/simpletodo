@@ -15,7 +15,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         super().__init__(title="Simple Todo", *args, **kwargs)
 
         self.set_border_width(5)
-        self.set_default_size(650, 380)
+        #~ self.set_default_size(650, 380)
         self.set_icon_name("simpletodo")
 
         headerb = Gtk.HeaderBar()
@@ -95,13 +95,45 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         self.main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         self.add(self.main_box)
 
+        # Add horizontal container for notebook and calendar :
+        self.second_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        self.main_box.add(self.second_box)
+
         # Create notebook from class :
         self.tnotebook = TaskNoteBook(self.update_percent_on_check)
-        self.main_box.add(self.tnotebook)
+        self.second_box.pack_start(self.tnotebook, True, True, 5)
         self.tnotebook.popup_enable()
         self.tnotebook.set_scrollable(True)
         self.tnotebook.connect("switch-page", self.on_page_change)
         self.tnotebook.connect("switch-page", self.update_percent_on_change)
+
+        # Create timebox for calendar and timer :
+        self.cal_time_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.second_box.pack_end(self.cal_time_box, False, False, 0)
+        
+        # Add calendar beside notebook :
+        self.calendar = Gtk.Calendar()
+        self.calendar.set_detail_height_rows = 5
+        self.calendar.set_detail_width_rows = 5
+        self.cal_time_box.add(self.calendar)
+
+        # Add calendar control button :
+        self.cal_button = Gtk.Button.new_with_label("Échéance pour la tâche")
+        self.cal_time_box.add(self.cal_button)
+
+        # Add timer and controls in a box below calendar :
+        self.timer_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        self.cal_time_box.add(self.timer_box)
+        timer_start = Gtk.Button()
+        timer_start_icon = Gtk.Image.new_from_icon_name("media-playback-start",
+                                                        Gtk.IconSize.BUTTON)
+        timer_start.add(timer_start_icon)
+        self.timer_box.pack_start(timer_start, True, True, 0)
+        timer_pause = Gtk.Button()
+        timer_pause_icon = Gtk.Image.new_from_icon_name("media-playback-pause",
+                                                        Gtk.IconSize.BUTTON)
+        timer_pause.add(timer_pause_icon)
+        self.timer_box.pack_start(timer_pause, True, True, 0)
 
         # Below notebook, add tasks management buttons box :
         self.buttons_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
@@ -486,7 +518,7 @@ class ToDoListBox(Gtk.Box):
 
         self.callback_percent = callback
         # Create tasks list and declare its future content :
-        self.tdlist_store = Gtk.ListStore(bool, str)
+        self.tdlist_store = Gtk.ListStore(bool, str, str)
         for tache in tdlist:
             self.tdlist_store.append([False, tache])
         self.current_filter_language = None
@@ -516,6 +548,18 @@ class ToDoListBox(Gtk.Box):
         # ... and add it to the treeview :
         self.tdview.append_column(self.column_task)
 
+        # Create "task due date" cells...
+        renderer_date = Gtk.CellRendererText()
+        self.column_date = Gtk.TreeViewColumn("Échéance", renderer_date, text=1)
+        self.column_date.set_sort_column_id(1)  # Cette colonne sera triable.
+        self.tdview.append_column(self.column_date)
+
+        # Create "task timer" cells...
+        renderer_timer = Gtk.CellRendererText()
+        self.column_timer = Gtk.TreeViewColumn("Temps passé", renderer_timer,
+                                                                text=1)
+        self.tdview.append_column(self.column_timer)
+        
         # By default, we can't select cells
         # (only active Selection mode allows it) :
         self.sel = self.tdview.get_selection()
