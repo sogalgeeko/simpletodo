@@ -261,7 +261,8 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
     def get_cal_date(self, widget):
         """Returns selected date in calendar"""
         year, month, day = self.calendar.get_date()
-        print(day, month+1, year, sep="/")
+        date = str(day) + "/" + str(month) + "/" + str(year)
+        return date
 
     def update_percent_on_change(self, *args):
         """Calculate percentage of done tasks
@@ -389,7 +390,8 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         project_name = self.get_project_name()
         if widget == self.buttons[0]:
             self.get_current_child().on_launch_creation(
-                self.get_project_name(), self.update_percent_on_check)
+                self.get_project_name(), self.get_cal_date(),
+                self.update_percent_on_check)
             self.update_percent_on_check()
         elif widget == self.buttons[1]:
             self.get_current_child().on_row_delete(
@@ -529,7 +531,7 @@ class ToDoListBox(Gtk.Box):
 
         self.callback_percent = callback
         # Create tasks list and declare its future content :
-        self.tdlist_store = Gtk.ListStore(bool, str, str)
+        self.tdlist_store = Gtk.ListStore(bool, str, str, str)
         for tache in tdlist:
             self.tdlist_store.append([False, tache])
         self.current_filter_language = None
@@ -608,7 +610,7 @@ class ToDoListBox(Gtk.Box):
         """Returns the amount of completed tasks"""
         c = 0
         for row in self.tdlist_store:
-            (state, pathlist) = row
+            (state, pathlist, date, time) = row
             if state is True:
                 c += 1
         return c
@@ -729,7 +731,7 @@ class ToDoListBox(Gtk.Box):
         except UnboundLocalError:
             return False
 
-    def on_launch_creation(self, parent_project, callback):
+    def on_launch_creation(self, parent_project, date, callback):
         """Show input box to create new task
         defined by 'project_name'. The new task will be
         created by the callback function"""
