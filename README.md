@@ -5,11 +5,11 @@ Il est écrit en Python3 et dispose d'une interface GTK3.
 
 **Installation :**
 
-Pour une installation rapide et basique, il suffit de récupérer le fichier *simpletodo* et de lancer le logiciel avec la commande :
+Pour une installation rapide et basique, il suffit de récupérer le fichier *simpletodo.py* et de lancer le logiciel avec la commande :
 
-`python3 simpletodo`
+`python3 simpletodo.py`
 
-Un RPM est également disponible auprès de l'auteur pour une installation propre pour tout le système (fonctionne sur openSUSE et Fedora).
+Un RPM est également disponible auprès de l'auteur pour une installation propre pour tout le système (testé sur openSUSE et Fedora).
 
 **Utilisation :**
 
