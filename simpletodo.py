@@ -15,7 +15,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         super().__init__(title="Simple Todo", *args, **kwargs)
 
         self.set_border_width(5)
-        #~ self.set_default_size(850, 380)
+        self.set_default_size(850, 380)
         self.set_icon_name("simpletodo")
 
         headerb = Gtk.HeaderBar()
@@ -66,16 +66,16 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         prjbox.add(deltab)
 
         # Advanced project mgt actions in a menu :
-        prj_menu = Gtk.Button()
+        self.prj_menu = Gtk.Button()
         prj_menu_img = Gtk.Image.new_from_icon_name("open-menu-symbolic",
                                                     Gtk.IconSize.BUTTON)
-        prj_menu.add(prj_menu_img)
-        prjbox.add(prj_menu)
+        self.prj_menu.add(prj_menu_img)
+        prjbox.add(self.prj_menu)
 
         # Define popover :
-        menu_popover = Gtk.Popover()
+        self.menu_popover = Gtk.PopoverMenu()
         # Make it relative to "menu" button :
-        menu_popover.set_relative_to(prj_menu)
+        self.menu_popover.set_relative_to(self.prj_menu)
         # Create a box that will go inside the popover :
         popover_box = Gtk.Box()
         popover_box.set_spacing(5)
@@ -91,8 +91,9 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
             b.connect("clicked", action)
             popover_box.add(b)
         # Add the box inside the popover :
-        menu_popover.add(popover_box)
-        prj_menu.connect("clicked", self.menu_popover_on_click(prj_menu, menu_popover))
+        self.menu_popover.add(popover_box)
+        self.prj_menu.connect("clicked", self.menu_popover_on_click,
+                                            self.menu_popover)
 
         headerb.pack_start(navbox)
         headerb.pack_end(prjbox)
@@ -116,36 +117,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         self.tnotebook.connect("switch-page", self.on_page_change)
         self.tnotebook.connect("switch-page", self.update_percent_on_change)
 
-        # Create timebox for calendar and timer :
-        self.cal_time_box = Gtk.Grid()
-        self.second_box.attach(self.cal_time_box, 1, 0, 1, 1)
 
-        # Add calendar beside notebook :
-        self.calendar = Gtk.Calendar()
-        self.calendar.set_detail_height_rows = 5
-        self.calendar.set_detail_width_rows = 5
-        self.calendar.set_margin_bottom(5)
-        self.cal_time_box.attach(self.calendar, 0, 0, 3, 1)
-
-        # Add calendar control button :
-        self.cal_button = Gtk.Button.new_with_label("Échéance pour la tâche")
-        self.cal_button.set_margin_bottom(5)
-        self.cal_time_box.attach(self.cal_button, 1, 1, 1, 1)
-        self.cal_button.connect("clicked", self.get_cal_date)
-
-        # Add timer and controls in a box below calendar :
-        timer_start = Gtk.Button()
-        timer_start_icon = Gtk.Image.new_from_icon_name("media-playback-start",
-                                                        Gtk.IconSize.BUTTON)
-        timer_start.add(timer_start_icon)
-        self.cal_time_box.attach(timer_start, 0, 2, 1, 1)
-        timer_label = Gtk.Label("Timer")
-        self.cal_time_box.attach(timer_label, 1, 2, 1, 1)
-        timer_pause = Gtk.Button()
-        timer_pause_icon = Gtk.Image.new_from_icon_name("media-playback-pause",
-                                                        Gtk.IconSize.BUTTON)
-        timer_pause.add(timer_pause_icon)
-        self.cal_time_box.attach(timer_pause, 2, 2, 1, 1)
 
         # Below notebook, add tasks management buttons box :
         self.buttons_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
@@ -180,8 +152,8 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         # Add the box inside the popover :
         self.tasks_menu_popover.add(popover_box)
         tasks_menu_button.connect("clicked",
-                                  menu_popover_on_click(tasks_menu_button, 
-                                                        tasks_menu_popover))
+                                  self.menu_popover_on_click,
+                                  self.tasks_menu_popover)
 
         # Create "Édition" mode switch:
         self.switch_label = Gtk.Label("Mode édition")
@@ -282,12 +254,6 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         """ Returns the current todolist """
         page_index = self.tnotebook.get_current_page()
         return self.tnotebook.get_nth_page(page_index)
-
-    def get_cal_date(self, widget):
-        """Returns selected date in calendar"""
-        year, month, day = self.calendar.get_date()
-        date = str(day) + "/" + str(month) + "/" + str(year)
-        return date
 
     def update_percent_on_change(self, *args):
         """Calculate percentage of done tasks
@@ -415,8 +381,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         project_name = self.get_project_name()
         if widget == self.buttons[0]:
             self.get_current_child().on_launch_creation(
-                self.get_project_name(), self.get_cal_date(),
-                self.update_percent_on_check)
+                self.get_project_name(), self.update_percent_on_check)
             self.update_percent_on_check()
         elif widget == self.buttons[1]:
             self.get_current_child().on_row_delete(
@@ -558,8 +523,9 @@ class ToDoListBox(Gtk.Box):
         # Create tasks list and declare its future content :
         self.tdlist_store = Gtk.ListStore(bool, str, str, str)
         for tache in tdlist:
-            self.tdlist_store.append([False, tache])
+            self.tdlist_store.append([False, tache, date, time])
         self.current_filter_language = None
+        self.tdlist_store.append([False, "sflk", "kihj", "klljijh"])
 
         # Create a treeview from tasks list :
         self.tdview = Gtk.TreeView(model=self.tdlist_store)
@@ -588,14 +554,14 @@ class ToDoListBox(Gtk.Box):
 
         # Create "task due date" cells...
         renderer_date = Gtk.CellRendererText()
-        self.column_date = Gtk.TreeViewColumn("Échéance", renderer_date, text=1)
+        self.column_date = Gtk.TreeViewColumn("Échéance", renderer_date, text=2)
         self.column_date.set_sort_column_id(1)  # Cette colonne sera triable.
         self.tdview.append_column(self.column_date)
 
         # Create "task timer" cells...
         renderer_timer = Gtk.CellRendererText()
         self.column_timer = Gtk.TreeViewColumn("Temps passé", renderer_timer,
-                                                                text=1)
+                                                                text=3)
         self.tdview.append_column(self.column_timer)
         
         # By default, we can't select cells
@@ -671,8 +637,9 @@ class ToDoListBox(Gtk.Box):
                     file_len += 1
                     line = line.strip().split(',')
                     # Format tasks name and append them to treestore :
-                    entry = (str(line[0]).strip(','),
-                             str(' '.join(line[1:])))
+                    entry = []
+                    for i in ([0,1,2,3]):
+                        entry.append(line[i])
                     self.tdlist_store.append(entry)
                     # Restore check boxes state according to line[0] content :
                     if entry[0] == "False":
@@ -709,7 +676,9 @@ class ToDoListBox(Gtk.Box):
         tasks are written row by row in file, line by line"""
         with open(share_dir + "/" + project_name, 'w') as file_out:
             for row in self.tdlist_store:
-                file_out.write(str(row[0]) + ',' + str(''.join(row[1])) + "\n")
+                for i in [0,1,2,3]:
+                    file_out.write(str(row[i]) + ',')
+                file_out.write("\n")
 
     def on_task_up(self):
         """Move selected task up"""
@@ -756,19 +725,19 @@ class ToDoListBox(Gtk.Box):
         except UnboundLocalError:
             return False
 
-    def on_launch_creation(self, parent_project, date, callback):
+    def on_launch_creation(self, parent_project, callback):
         """Show input box to create new task
         defined by 'project_name'. The new task will be
         created by the callback function"""
         self.update_percent = callback
-        self.ta = InputWin("Créer une nouvelle tâche dans « " +
+        self.ta = NewTaskWin("Créer une nouvelle tâche dans « " +
                            parent_project + " »", self.on_create_new,
                            self.update_percent)
         self.ta.show()
 
     def on_create_new(self, text, inputbox, update_percent):
         """Append task at the end of ListStore"""
-        self.tdlist_store.insert_with_valuesv(-1, [1], [text])
+        self.tdlist_store.append([False, text, date, time])
         if inputbox == 1:
             self.ta.close()
             update_percent()
@@ -815,6 +784,91 @@ class InputWin(Gtk.Window):
         if self.object_entry.get_text() != "":
             self.callback(self.object_entry.get_text(), 1, self.update)
 
+
+class NewTaskWin(Gtk.Window):
+    """Initialize a window for tasks creation"""
+
+    def __init__(self, title, callback, update_percent):
+        Gtk.Window.__init__(self, title=title)
+        self.set_transient_for(app.window)
+        self.props.modal = True
+        self.props.window_position = 4
+        self.callback = callback
+        self.update = update_percent
+
+        # Inputbox size params :
+        #~ self.set_default_size(250, 100)
+        self.set_border_width(10)
+
+        # Create main container:
+        box = Gtk.Grid(column_spacing=20, row_spacing=20)
+        #~ box.set_size_request(300, 200)
+        self.add(box)
+
+        # Task description label :
+        label1 = Gtk.Label("Tâche")
+        box.add(label1)
+
+        # Create input box :
+        self.object_entry = Gtk.Entry()
+        self.object_entry.set_text("Nouvel élément")
+        # Make inputbox editable :
+        self.object_entry.set_property("editable", True)
+        # Allow <Entrée> button to launch action :
+        self.object_entry.connect("activate", self.on_create_object)
+        box.attach(self.object_entry, 1, 0, 2, 1)
+
+        label2 = Gtk.Label("Échéance")
+        box.attach(label2, 0, 1, 1, 1)
+    
+        self.cal_entry = Gtk.Entry()
+        box.attach(self.cal_entry, 1, 1, 2, 1)
+        
+        self.expand = Gtk.Expander()
+        box.attach(self.expand, 0, 2, 3, 1)
+        pcal_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.expand.add(pcal_box)
+        self.calendar = Gtk.Calendar()
+        pcal_box.add(self.calendar)
+        cal_action_butt = Gtk.Button.new_with_label("Définir")
+        cal_action_butt.connect("clicked", self.get_cal_date, self.calendar)
+        pcal_box.add(cal_action_butt)
+
+        label3 = Gtk.Label("Durée")
+        box.attach(label3, 0, 3, 1, 1)
+
+        time = Gtk.SpinButton()
+        box.attach(time, 1, 3 , 2, 1)
+        adjustment = Gtk.Adjustment(0, 0, 24, 1, 1, 0)
+        time.set_adjustment(adjustment)
+        time.set_digits(1)
+        time.set_numeric(True)
+        
+        # This button launch the action :
+        self.object_create_button = Gtk.Button("Créer")
+        self.object_create_button.connect("clicked", self.on_create_object)
+        box.attach(self.object_create_button, 0, 4, 3, 1)
+
+        self.show_all()
+
+    def get_cal_date(self, widget, calendar):
+        """Returns selected date in calendar"""
+        year, month, day = calendar.get_date()
+        date = str(day) + "/" + str(month) + "/" + str(year)
+        self.cal_entry.set_text(date)
+
+    def menu_popover_on_click(self, button, event, popover):
+        #Toggle popover
+        if popover.get_visible():
+            popover.hide()
+        else:
+            popover.show_all()
+
+    def on_create_object(self, button):
+        """Send entry text to parent class object (here : HeaderBarWindow)
+        callback function"""
+        if self.object_entry.get_text() != "":
+            self.callback(self.object_entry.get_text(), 1, self.update)
 
 class ConfirmDialog(Gtk.Dialog):
     """A generic yes/no dialog"""
