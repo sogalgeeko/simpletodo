@@ -66,27 +66,33 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         prjbox.add(deltab)
 
         # Advanced project mgt actions in a menu :
-        prj_menu = Gtk.MenuButton()
+        prj_menu = Gtk.Button()
         prj_menu_img = Gtk.Image.new_from_icon_name("open-menu-symbolic",
                                                     Gtk.IconSize.BUTTON)
         prj_menu.add(prj_menu_img)
-        menu_entries = Gtk.Menu()
-        i1 = Gtk.MenuItem("Renommer...")
-        i1.connect("activate", self.rename_prj_dialog)
-        i2 = Gtk.MenuItem("Cloner...")
-        i2.connect("activate", self.clone_project_dialog)
-        i3 = Gtk.MenuItem("Enregistrer")
-        i3.connect("activate", self.on_save_notebook)
-        i4 = Gtk.MenuItem("À propos")
-        i4.connect("activate", self.show_about_dialog)
-        menu_entries.append(i1)
-        menu_entries.append(i2)
-        menu_entries.append(i3)
-        menu_entries.append(i4)
-        menu_entries.show_all()
-        prj_menu.set_popup(menu_entries)
-        prj_menu.show_all()
         prjbox.add(prj_menu)
+
+        # Define popover :
+        menu_popover = Gtk.Popover()
+        # Make it relative to "menu" button :
+        menu_popover.set_relative_to(prj_menu)
+        # Create a box that will go inside the popover :
+        popover_box = Gtk.Box()
+        popover_box.set_spacing(5)
+        popover_box.set_orientation(Gtk.Orientation.VERTICAL)
+        # Put all necessary buttons in the box :
+        for button_label, action in zip(("Renommer...", "Cloner", "Enregistrer",
+                             "À propos"), (self.rename_prj_dialog,
+                                            self.clone_project_dialog,
+                                            self.on_save_notebook,
+                                            self.show_about_dialog)):
+            b = Gtk.Button.new_with_label(str(button_label))
+            b.set_relief(2)
+            b.connect("clicked", action)
+            popover_box.add(b)
+        # Add the box inside the popover :
+        menu_popover.add(popover_box)
+        prj_menu.connect("clicked", self.menu_popover_on_click(prj_menu, menu_popover))
 
         headerb.pack_start(navbox)
         headerb.pack_end(prjbox)
@@ -113,7 +119,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         # Create timebox for calendar and timer :
         self.cal_time_box = Gtk.Grid()
         self.second_box.attach(self.cal_time_box, 1, 0, 1, 1)
-        
+
         # Add calendar beside notebook :
         self.calendar = Gtk.Calendar()
         self.calendar.set_detail_height_rows = 5
@@ -147,23 +153,35 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         self.main_box.add(self.buttons_box)
 
         # Create tasks mgt menu:
-        tasks_menu_button = Gtk.MenuButton()
+        tasks_menu_button = Gtk.Button()
         tasks_menu_icon = Gtk.Image.new_from_icon_name("view-more-symbolic",
                                                        Gtk.IconSize.BUTTON)
         tasks_menu_button.add(tasks_menu_icon)
-        tasks_menu = Gtk.Menu()
-        i1 = Gtk.MenuItem("Cocher tous")
-        i1.connect("activate", self.on_tasks_check_all)
-        i2 = Gtk.MenuItem("Décocher tous")
-        i2.connect("activate", self.on_tasks_uncheck_all)
-        i3 = Gtk.MenuItem("Inverser tous")
-        i3.connect("activate", self.on_tasks_toggle_all)
-        tasks_menu.append(i1)
-        tasks_menu.append(i2)
-        tasks_menu.append(i3)
-        tasks_menu_button.set_popup(tasks_menu)
-        tasks_menu.show_all()
         self.buttons_box.pack_start(tasks_menu_button, True, True, 0)
+
+        # Define popover :
+        self.tasks_menu_popover = Gtk.Popover()
+        # Make it relative to "menu" button :
+        self.tasks_menu_popover.set_relative_to(tasks_menu_button)
+        # Create a box that will go inside the popover :
+        popover_box = Gtk.Box()
+        popover_box.set_spacing(5)
+        popover_box.set_orientation(Gtk.Orientation.VERTICAL)
+        # Put all necessary buttons in the box :
+        for button_label, action in zip(("Cocher tous", "Décocher tous",
+                                         "Inverser tous"),
+                                        (self.on_tasks_check_all,
+                                            self.on_tasks_uncheck_all,
+                                         self.on_tasks_toggle_all)):
+            b = Gtk.Button.new_with_label(str(button_label))
+            b.set_relief(2)
+            b.connect("clicked", action)
+            popover_box.add(b)
+        # Add the box inside the popover :
+        self.tasks_menu_popover.add(popover_box)
+        tasks_menu_button.connect("clicked",
+                                  menu_popover_on_click(tasks_menu_button, 
+                                                        tasks_menu_popover))
 
         # Create "Édition" mode switch:
         self.switch_label = Gtk.Label("Mode édition")
@@ -246,6 +264,13 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
                       Gtk.AccelFlags.VISIBLE,
                       self.accel_edit_mode_on)
         self.add_accel_group(accel)
+
+    def menu_popover_on_click(self, button, popover):
+        #Toggle popover
+        if popover.get_visible():
+            popover.hide()
+        else:
+            popover.show_all()
 
     def get_project_name(self):
         """Returns the project name"""
