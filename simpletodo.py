@@ -86,8 +86,10 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
                                             self.clone_project_dialog,
                                             self.on_save_notebook,
                                             self.show_about_dialog)):
-            b = Gtk.Button.new_with_label(str(button_label))
+            b = Gtk.ModelButton.new()
+            b.props.text = str(button_label)
             b.set_relief(2)
+            b.props.centered = False
             b.connect("clicked", action)
             popover_box.add(b)
         # Add the box inside the popover :
@@ -145,8 +147,10 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
                                         (self.on_tasks_check_all,
                                             self.on_tasks_uncheck_all,
                                          self.on_tasks_toggle_all)):
-            b = Gtk.Button.new_with_label(str(button_label))
+            b = Gtk.ModelButton.new()
+            b.props.text = str(button_label)
             b.set_relief(2)
+            b.props.centered = False
             b.connect("clicked", action)
             popover_box.add(b)
         # Add the box inside the popover :
@@ -176,6 +180,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
             button.connect("clicked", self.on_sel_action)
         # ... except "Supprimer" (toggled by "Édition")
         self.buttons[1].disconnect_by_func(self.on_sel_action)
+        self.buttons[0].disconnect_by_func(self.on_sel_action)
 
         self.buttons_box.pack_start(self.switch_label, True, True, 5)
         self.buttons_box.pack_start(self.switch_edit, True, True, 5)
@@ -216,6 +221,14 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         self.task_up.set_sensitive(False)
         self.task_down.set_sensitive(False)
         self.projects_cbox.set_sensitive(False)
+
+        # TODO:
+        self.test = Gtk.Popover()
+        self.test.set_relative_to(self.buttons[0])
+        self.test.add(NewTaskWin(self.get_project_name(), self.update_percent_on_check))
+        self.buttons[0].connect("clicked", self.menu_popover_on_click,
+                                        self.test)
+        
 
         # Add tooltips to buttons that use icon :
         self.buttons[0].set_tooltip_text("Nouvelle tâche")
@@ -521,11 +534,11 @@ class ToDoListBox(Gtk.Box):
 
         self.callback_percent = callback
         # Create tasks list and declare its future content :
-        self.tdlist_store = Gtk.ListStore(bool, str, str, str)
+        self.tdlist_store = Gtk.ListStore(bool, str, str, float)
         for tache in tdlist:
             self.tdlist_store.append([False, tache, date, time])
         self.current_filter_language = None
-        self.tdlist_store.append([False, "sflk", "kihj", "klljijh"])
+        #~ self.tdlist_store.append([False, "sflk", "kihj", "klljijh"])
 
         # Create a treeview from tasks list :
         self.tdview = Gtk.TreeView(model=self.tdlist_store)
@@ -549,6 +562,8 @@ class ToDoListBox(Gtk.Box):
         self.column_task = Gtk.TreeViewColumn("Description de la tâche",
                                               renderer_task, text=1)
         self.column_task.set_sort_column_id(1)  # Cette colonne sera triable.
+        self.column_task.set_min_width(450)
+        self.column_task.set_resizable(True)
         # ... and add it to the treeview :
         self.tdview.append_column(self.column_task)
 
@@ -556,12 +571,14 @@ class ToDoListBox(Gtk.Box):
         renderer_date = Gtk.CellRendererText()
         self.column_date = Gtk.TreeViewColumn("Échéance", renderer_date, text=2)
         self.column_date.set_sort_column_id(1)  # Cette colonne sera triable.
+        self.column_date.set_resizable(True)
         self.tdview.append_column(self.column_date)
 
         # Create "task timer" cells...
         renderer_timer = Gtk.CellRendererText()
         self.column_timer = Gtk.TreeViewColumn("Temps passé", renderer_timer,
                                                                 text=3)
+        self.column_timer.set_resizable(True)                                                                
         self.tdview.append_column(self.column_timer)
         
         # By default, we can't select cells
@@ -638,8 +655,9 @@ class ToDoListBox(Gtk.Box):
                     line = line.strip().split(',')
                     # Format tasks name and append them to treestore :
                     entry = []
-                    for i in ([0,1,2,3]):
+                    for i in ([0,1,2]):
                         entry.append(line[i])
+                    entry.append(float(line[3]))
                     self.tdlist_store.append(entry)
                     # Restore check boxes state according to line[0] content :
                     if entry[0] == "False":
@@ -656,7 +674,7 @@ class ToDoListBox(Gtk.Box):
     def check_all_tasks(self, project_name, new_state):
         """Change task state according to variable"""
         for i, row in enumerate(self.tdlist_store):
-            (current_state, task) = row
+            (current_state, task, date, time) = row
             iter = self.tdlist_store.get_iter(i)
             if new_state is False:
                 self.tdlist_store[i][0] = False
@@ -735,7 +753,7 @@ class ToDoListBox(Gtk.Box):
                            self.update_percent)
         self.ta.show()
 
-    def on_create_new(self, text, inputbox, update_percent):
+    def on_create_new(self, text, date, time, inputbox, update_percent):
         """Append task at the end of ListStore"""
         self.tdlist_store.append([False, text, date, time])
         if inputbox == 1:
@@ -785,24 +803,23 @@ class InputWin(Gtk.Window):
             self.callback(self.object_entry.get_text(), 1, self.update)
 
 
-class NewTaskWin(Gtk.Window):
+class NewTaskWin(Gtk.Grid):
     """Initialize a window for tasks creation"""
 
-    def __init__(self, title, callback, update_percent):
-        Gtk.Window.__init__(self, title=title)
-        self.set_transient_for(app.window)
-        self.props.modal = True
-        self.props.window_position = 4
+    def __init__(self, callback, update_percent):
+        Gtk.Grid.__init__(self)
+        #~ self.set_transient_for(app.window)
+        #~ self.props.modal = True
+        #~ self.props.window_position = 4
         self.callback = callback
         self.update = update_percent
 
         # Inputbox size params :
         #~ self.set_default_size(250, 100)
-        self.set_border_width(10)
+        #~ self.set_border_width(10)
 
         # Create main container:
-        box = Gtk.Grid(column_spacing=20, row_spacing=20)
-        #~ box.set_size_request(300, 200)
+        box = Gtk.Grid(column_spacing=20, row_spacing=10)
         self.add(box)
 
         # Task description label :
@@ -824,30 +841,31 @@ class NewTaskWin(Gtk.Window):
         self.cal_entry = Gtk.Entry()
         box.attach(self.cal_entry, 1, 1, 2, 1)
         
-        self.expand = Gtk.Expander()
-        box.attach(self.expand, 0, 2, 3, 1)
-        pcal_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        self.expand.add(pcal_box)
         self.calendar = Gtk.Calendar()
-        pcal_box.add(self.calendar)
+        box.attach(self.calendar, 0, 2, 3, 1)
+        # Allow <double click> button to select date :
+        self.calendar.connect("day-selected-double-click", self.get_cal_date,
+                                                        self.calendar)
         cal_action_butt = Gtk.Button.new_with_label("Définir")
         cal_action_butt.connect("clicked", self.get_cal_date, self.calendar)
-        pcal_box.add(cal_action_butt)
+        box.attach(cal_action_butt, 0, 3, 3, 1)
 
         label3 = Gtk.Label("Durée")
-        box.attach(label3, 0, 3, 1, 1)
+        box.attach(label3, 0, 4, 1, 1)
 
-        time = Gtk.SpinButton()
-        box.attach(time, 1, 3 , 2, 1)
+        self.time = Gtk.SpinButton()
+        box.attach(self.time, 1, 4 , 2, 1)
         adjustment = Gtk.Adjustment(0, 0, 24, 1, 1, 0)
-        time.set_adjustment(adjustment)
-        time.set_digits(1)
-        time.set_numeric(True)
+        self.time.set_adjustment(adjustment)
+        self.time.set_digits(1)
+        self.time.set_numeric(True)
+        # Allow <Entrée> button to launch action :
+        self.time.connect("activate", self.on_create_object)
         
         # This button launch the action :
         self.object_create_button = Gtk.Button("Créer")
         self.object_create_button.connect("clicked", self.on_create_object)
-        box.attach(self.object_create_button, 0, 4, 3, 1)
+        box.attach(self.object_create_button, 0, 5, 3, 1)
 
         self.show_all()
 
@@ -857,18 +875,14 @@ class NewTaskWin(Gtk.Window):
         date = str(day) + "/" + str(month) + "/" + str(year)
         self.cal_entry.set_text(date)
 
-    def menu_popover_on_click(self, button, event, popover):
-        #Toggle popover
-        if popover.get_visible():
-            popover.hide()
-        else:
-            popover.show_all()
-
     def on_create_object(self, button):
         """Send entry text to parent class object (here : HeaderBarWindow)
         callback function"""
         if self.object_entry.get_text() != "":
-            self.callback(self.object_entry.get_text(), 1, self.update)
+            task = self.object_entry.get_text()
+            date = self.cal_entry.get_text()
+            time = self.time.get_value()
+            self.callback(task, date, time, 1, self.update)
 
 class ConfirmDialog(Gtk.Dialog):
     """A generic yes/no dialog"""
