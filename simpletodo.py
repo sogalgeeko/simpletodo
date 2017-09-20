@@ -15,7 +15,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         super().__init__(title="Simple Todo", *args, **kwargs)
 
         self.set_border_width(5)
-        self.set_default_size(850, 380)
+        self.set_size_request(850, 530)
         self.set_icon_name("simpletodo")
 
         headerb = Gtk.HeaderBar()
@@ -25,7 +25,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
 
         # Some Gio params :
         action = Gio.SimpleAction.new("project_dialog", None)
-        #~ action.connect("activate", self.menu_popover_on_click, self.newtab_popover)
+        #~ action.connect("activate", self.toggle_visibility, self.newtab_popover)
         self.add_action(action)
 
         # Box receiving project management buttons :
@@ -77,7 +77,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         self.newproject_create_button.connect("clicked", self.on_new_tab)
         newproject_box.pack_start(self.newproject_create_button, True, True, 1)
         # Connect newtab button to "show popover" function :
-        newtab.connect("clicked", self.menu_popover_on_click, 
+        newtab.connect("clicked", self.toggle_visibility, 
                                         self.newtab_popover)
         # Tab removal button :
         deltab = Gtk.Button()
@@ -179,7 +179,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
 
         # Add the box inside the popover :
         self.menu_popover.add(popover_box)
-        self.prj_menu.connect("clicked", self.menu_popover_on_click,
+        self.prj_menu.connect("clicked", self.toggle_visibility,
                                             self.menu_popover)
 
         headerb.pack_start(navbox)
@@ -188,18 +188,38 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         # Main container for tabbed widget (notebook) :
         self.main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         self.add(self.main_box)
-
+        
+        # Add horizontal container for sidebar revealer and notebook :
+        self.overlay = Gtk.Overlay()
+        self.main_box.add(self.overlay)
+        
         # Create notebook from class :
         self.tnotebook = TaskNoteBook(self.update_percent_on_check)
-        self.main_box.add(self.tnotebook)
         self.tnotebook.set_hexpand(True)
         self.tnotebook.set_size_request(550, -1)
-        self.tnotebook.set_margin_end(5)
         self.tnotebook.popup_enable()
         self.tnotebook.set_scrollable(True)
         self.tnotebook.connect("switch-page", self.on_page_change)
         self.tnotebook.connect("switch-page", self.update_percent_on_change)
+        self.overlay.add(self.tnotebook)
 
+        # Create revealer :
+        self.sidebar = Gtk.Revealer()
+        self.sidebar.set_margin_bottom(5)
+        self.sidebar.set_transition_type(Gtk.RevealerTransitionType.SLIDE_RIGHT)
+        self.sidebar.set_transition_duration(10000)
+        self.sidebar.set_reveal_child(True)
+        t = NewTaskWin(self.get_current_child().on_create_new,
+                                self.update_percent_on_check,
+                                self.sidebar)
+        self.sidebar.set_vexpand(True)
+        t.override_background_color(0, Gdk.RGBA(
+                                red=0.1, green=0.1, blue=0.1, alpha=0.9))
+        self.sidebar.add(t)
+        self.sidebar.set_valign(Gtk.Align.FILL)
+        self.sidebar.set_halign(Gtk.Align.START)
+        self.overlay.add_overlay(self.sidebar)
+        
         # Below notebook, add tasks management buttons box :
         self.buttons_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
         self.buttons_box.set_margin_top(5)
@@ -235,7 +255,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         # Add the box inside the popover :
         self.tasks_menu_popover.add(popover_box)
         tasks_menu_button.connect("clicked",
-                                  self.menu_popover_on_click,
+                                  self.toggle_visibility,
                                   self.tasks_menu_popover)
 
         # Create "Édition" mode switch:
@@ -259,6 +279,8 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
             button.connect("clicked", self.on_sel_action)
         # ... except "Supprimer" (toggled by "Édition")
         self.buttons[1].disconnect_by_func(self.on_sel_action)
+        self.buttons[0].disconnect_by_func(self.on_sel_action)
+        self.buttons[0].connect("clicked", self.toggle_visibility, self.sidebar)
         self.task_new_popover = Gtk.Popover()
         self.task_new_popover.set_relative_to(self.buttons[0])
         self.task_new_popover.add(NewTaskWin(
@@ -325,13 +347,14 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
                       Gtk.AccelFlags.VISIBLE,
                       self.accel_edit_mode_on)
         self.add_accel_group(accel)
+        
 
-    def menu_popover_on_click(self, button, popover):
+    def toggle_visibility(self, widget, container):
         #Toggle popover
-        if popover.get_visible():
-            popover.hide()
+        if container.get_visible():
+            container.hide()
         else:
-            popover.show_all()
+            container.show_all()
 
     def get_project_name(self):
         """Returns the project name"""
@@ -455,7 +478,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         project_name = self.get_project_name()
         if widget == self.buttons[0]:
 
-            self.menu_popover_on_click(self.buttons[0], self.task_new_popover)
+            self.toggle_visibility(self.buttons[0], self.task_new_popover)
         elif widget == self.buttons[1]:
             self.get_current_child().on_row_delete(
                 self.update_percent_on_check)
@@ -529,7 +552,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
     def accel_new_task(self, *args):
         """Define action to perform on keyboard shortcut,
         here Ctrl + n launches task creation in active page list"""
-        self.menu_popover_on_click(self.buttons[0], self.task_new_popover)
+        self.toggle_visibility(self.buttons[0], self.sidebar)
 
     def accel_edit_mode_on(self, *args):
         """On keyboard shortcut, toggle switch state,
@@ -1020,6 +1043,7 @@ class Application(Gtk.Application):
             self.window = HeaderBarWindow(application=self)
 
         self.window.show_all()
+        self.window.sidebar.hide()
 
     def on_about(self, action, param):
         about_dialog = AboutDialog()
