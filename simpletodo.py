@@ -7,6 +7,10 @@ import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk, GdkPixbuf, Gio
 
+# TODO : réécrire le processus de création de tâches de façon + directe:
+# supprimer bouton de newtaskwin pour l'intégrer à "self", ce bouton lance une
+# fonction qui récupère les infos de newtaskwin et les passe à l'instance de TodoListBox active
+# pour créer la tâche.
 
 class HeaderBarWindow(Gtk.ApplicationWindow):
     """ Initialize window with HeaderBar """
