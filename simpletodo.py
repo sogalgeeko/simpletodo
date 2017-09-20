@@ -209,7 +209,8 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         self.sidebar.set_transition_type(Gtk.RevealerTransitionType.SLIDE_RIGHT)
         self.sidebar.set_transition_duration(10000)
         self.sidebar.set_reveal_child(True)
-        t = NewTaskWin(self.get_current_child().on_create_new,
+        t = NewTaskWin(self.get_current_child(), 
+                                self.get_current_child().on_create_new,
                                 self.update_percent_on_check,
                                 self.sidebar)
         self.sidebar.set_vexpand(True)
@@ -281,12 +282,6 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         self.buttons[1].disconnect_by_func(self.on_sel_action)
         self.buttons[0].disconnect_by_func(self.on_sel_action)
         self.buttons[0].connect("clicked", self.toggle_visibility, self.sidebar)
-        self.task_new_popover = Gtk.Popover()
-        self.task_new_popover.set_relative_to(self.buttons[0])
-        self.task_new_popover.add(NewTaskWin(
-                                self.get_current_child().on_create_new,
-                                self.update_percent_on_check,
-                                self.task_new_popover))
 
         self.buttons_box.pack_start(self.switch_label, True, True, 5)
         self.buttons_box.pack_start(self.switch_edit, True, True, 5)
@@ -553,6 +548,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         """Define action to perform on keyboard shortcut,
         here Ctrl + n launches task creation in active page list"""
         self.toggle_visibility(self.buttons[0], self.sidebar)
+        self.sidebar.get_child().task_entry.grab_focus()
 
     def accel_edit_mode_on(self, *args):
         """On keyboard shortcut, toggle switch state,
@@ -840,59 +836,18 @@ class ToDoListBox(Gtk.Box):
         self.tdlist_store.append([False, text, date, time])
 
 
-class InputWin(Gtk.Window):
-    """Initialize a generic input box window"""
-
-    def __init__(self, title, callback, update_percent):
-        Gtk.Window.__init__(self, title=title)
-        self.set_transient_for(app.window)
-        self.props.modal = True
-        self.props.window_position = 4
-        self.callback = callback
-        self.update = update_percent
-
-        # Inputbox size params :
-        self.set_size_request(500, 70)
-        self.set_border_width(10)
-
-        # Create main container:
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
-        self.add(box)
-
-        # Create input box :
-        self.object_entry = Gtk.Entry()
-        self.object_entry.set_text("Nouvel élément")
-        # Make inputbox editable :
-        self.object_entry.set_property("editable", True)
-        # Allow <Entrée> button to launch action :
-        self.object_entry.connect("activate", self.on_create_object)
-        box.pack_start(self.object_entry, True, True, 0)
-
-        # This button launch the action :
-        self.object_create_button = Gtk.Button("Créer")
-        self.object_create_button.connect("clicked", self.on_create_object)
-        box.pack_start(self.object_create_button, True, True, 1)
-
-        self.show_all()
-
-    def on_create_object(self, button):
-        """Send entry text to parent class object (here : HeaderBarWindow)
-        callback function"""
-        if self.object_entry.get_text() != "":
-            self.callback(self.object_entry.get_text(), 1, self.update)
-
-
 class NewTaskWin(Gtk.Grid):
     """Initialize a grid with all widgets needed for tasks creation.
     This grid is included in a popover."""
 
-    def __init__(self, callback_create_func, callback_update_func,
+    def __init__(self, project, callback_create_func, callback_update_func,
                                              parent_popover):
         Gtk.Grid.__init__(self)
         
         # Define callback functions and parent widget :
         self.callback_create_func = callback_create_func
         self.callback_update_func = callback_update_func
+        self.project = project
         self.parent = parent_popover
         
         # Create main container:
@@ -960,6 +915,7 @@ class NewTaskWin(Gtk.Grid):
             task = self.task_entry.get_text()
             date = self.cal_entry.get_text()
             time = self.time.get_value()
+            self.project.
             self.callback_create_func(task, date, time)
             self.callback_update_func()
             self.parent.hide()
