@@ -25,7 +25,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
 
         # Some Gio params :
         action = Gio.SimpleAction.new("project_dialog", None)
-        #~ action.connect("activate", self.new_project_dialog)
+        #~ action.connect("activate", self.menu_popover_on_click, self.newtab_popover)
         self.add_action(action)
 
         # Box receiving project management buttons :
@@ -102,12 +102,73 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         popover_box = Gtk.Box(border_width=5)
         popover_box.set_spacing(5)
         popover_box.set_orientation(Gtk.Orientation.VERTICAL)
-        # TODO: sous menu popover pour renommer sur le même modèle que Cloner
+
         # Put all necessary buttons in the box :
-        for button_label, action in zip(("Renommer...", "Enregistrer",
-                             "À propos"), (self.rename_prj_dialog,
-                                            #~ self.clone_project_dialog,
-                                            self.on_save_notebook,
+        # Create a box for renaming widgets :
+        rename_popover_box = Gtk.Grid(border_width=5, 
+                                        row_spacing = 5,
+                                        column_spacing=5)
+        # Add "go back" widget :
+        go_back0 = Gtk.ModelButton()
+        go_back0.props.text = "Retour"
+        go_back0.props.inverted = True
+        go_back0.props.centered = True
+        go_back0.props.menu_name = "main"
+        rename_popover_box.attach(go_back0, 0, 0, 2, 1)
+        # Add it renaming widgets :
+        self.rename_prj_entry = Gtk.Entry()
+        rename_button = Gtk.Button.new_with_label("Ok")
+        rename_button.connect("clicked", self.on_rename_project)
+        rename_popover_box.attach(self.rename_prj_entry, 0, 1, 1, 1)
+        rename_popover_box.attach(rename_button, 1, 1, 1, 1)
+        # Add button in the parent popover :
+        rename_to_button = Gtk.ModelButton()
+        rename_to_button.props.text = "Renommer en..."
+        # Link it to the rename_popover_box :
+        rename_to_button.props.menu_name = "rename_popover_box"
+        rename_to_button.set_relief(2)
+        rename_to_button.props.centered = False
+        popover_box.add(rename_to_button)
+      
+        # Define box to be shown in slided popover :
+        clone_name_box = Gtk.Grid(border_width=5, 
+                                        row_spacing = 5,
+                                        column_spacing=5)
+        # Add "go back" widget :
+        go_back1 = Gtk.ModelButton()
+        go_back1.props.text = "Retour"
+        go_back1.props.inverted = True
+        go_back1.props.centered = True
+        go_back1.props.menu_name = "main"
+        clone_name_box.attach(go_back1, 0, 0, 2, 1)
+        # Added cloning widgets :
+        self.clone_name_entry = Gtk.Entry()
+        self.clone_name_entry.set_text("Nom du projet cloné")
+        clone_name_button = Gtk.Button.new_with_label("Ok")
+        clone_name_button.connect("clicked", self.on_clone_project)
+        clone_name_box.attach(self.clone_name_entry, 0, 1, 1, 1)
+        clone_name_box.attach(clone_name_button, 1, 1, 1, 1)
+        
+        # Add button that will show submenu :
+        clone_to_button = Gtk.ModelButton.new()
+        # And set the name of the widget it will slides to :
+        clone_to_button.props.menu_name = "clone_name_box"
+        # Set its properties :
+        clone_to_button.props.text = "Cloner vers..."
+        clone_to_button.set_relief(2)
+        clone_to_button.props.centered = False
+        popover_box.add(clone_to_button)
+        
+        # Add the clone and renaming box to the popover, not directly but... :
+        self.menu_popover.add(clone_name_box)
+        self.menu_popover.add(rename_popover_box)
+        # ... in a submenu :
+        self.menu_popover.child_set_property(clone_name_box, "submenu", "clone_name_box")
+        self.menu_popover.child_set_property(rename_popover_box, "submenu", "rename_popover_box")
+        
+        # Add other buttons :
+        for button_label, action in zip(("Enregistrer",
+                             "À propos"), (self.on_save_notebook,
                                             self.show_about_dialog)):
             b = Gtk.ModelButton.new()
             b.props.text = str(button_label)
@@ -115,31 +176,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
             b.props.centered = False
             b.connect("clicked", action)
             popover_box.add(b)
-      
-        # Define box to be shown in slided popover :
-        clone_name_box = Gtk.Box(border_width=5)
-        # Added needed widgets :
-        self.clone_name_entry = Gtk.Entry()
-        self.clone_name_entry.set_text("Nom du projet cloné")
-        clone_name_button = Gtk.Button.new_with_label("Ok")
-        clone_name_button.connect("clicked", self.on_clone_project)
-        clone_name_box.add(self.clone_name_entry)
-        clone_name_box.add(clone_name_button)
-        
-        # Add button that will show submenu :
-        clone_to_button = Gtk.ModelButton.new()
-        # And set the name of the widget it will slides to :
-        clone_to_button.props.menu_name = "clone_name_box"
-        # Set its properties :
-        clone_to_button.props.label = "Cloner vers..."
-        clone_to_button.set_relief(2)
-        clone_to_button.props.centered = False
-        popover_box.add(clone_to_button)
-        
-        # Add the clone naming box to the popover, not directly but... :
-        self.menu_popover.add(clone_name_box)
-        # ... in a submenu :
-        self.menu_popover.child_set_property(clone_name_box, "submenu", "clone_name_box")
+
         # Add the box inside the popover :
         self.menu_popover.add(popover_box)
         self.prj_menu.connect("clicked", self.menu_popover_on_click,
@@ -348,13 +385,6 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         # Hide popover when done :
         self.newtab_popover.hide()
 
-    def clone_project_dialog(self, tnotebook):
-        """Launch project cloning dialog
-        initialize input window with 'clone_project' as callback function"""
-        self.pjr_name_input = InputWin(
-            "Cloner ce projet vers...", self.on_clone_project, None)
-        self.pjr_name_input.show()
-
     def on_clone_project(self, widget):
         """Duplicate a project, create a new file with "-COPIE" suffix"""
         text = self.clone_name_entry.get_text()
@@ -374,21 +404,14 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         # Hide popover when done :
         self.menu_popover.hide()
 
-    def rename_prj_dialog(self, tnotebook):
-        """Open InputWin class instance to rename project,
-        on_rename_project will be called to actually change
-        project tab label text"""
-        self.new_name_input = InputWin("Renommer le projet « " +
-                                       self.get_project_name() + " »",
-                                       self.on_rename_project,
-                                       self.update_percent_on_check)
-
-    def on_rename_project(self, text, *args):
+    def on_rename_project(self, widget):
         """Change tab label (rename project)"""
+        text = self.rename_prj_entry.get_text()
         os.rename(share_dir + "/" + self.get_project_name(),
                   share_dir + "/" + text)
         self.tnotebook.set_tab_label_text(self.get_current_child(), text)
-        self.new_name_input.close()
+        # Hide popover when done :
+        self.newtab_popover.hide()
 
     def on_save_notebook(self, *args):
         """Save current (with focus) list"""
