@@ -18,7 +18,6 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
     def __init__(self, *args, **kwargs):
         super().__init__(title="Simple Todo", *args, **kwargs)
 
-        self.set_border_width(5)
         self.set_size_request(850, 530)
         self.set_icon_name("simpletodo")
 
@@ -200,6 +199,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         # Create notebook from class :
         self.tnotebook = TaskNoteBook(self.update_percent_on_check)
         self.tnotebook.set_hexpand(True)
+        self.tnotebook.set_border_width(5)
         self.tnotebook.set_size_request(550, -1)
         self.tnotebook.popup_enable()
         self.tnotebook.set_scrollable(True)
@@ -213,21 +213,26 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         self.sidebar.set_transition_type(Gtk.RevealerTransitionType.SLIDE_RIGHT)
         self.sidebar.set_transition_duration(10000)
         self.sidebar.set_reveal_child(True)
-        t = NewTaskWin(self.get_current_child(), 
-                                self.get_current_child().on_create_new,
-                                self.update_percent_on_check,
-                                self.sidebar)
         self.sidebar.set_vexpand(True)
-        t.override_background_color(0, Gdk.RGBA(
-                                red=0.1, green=0.1, blue=0.1, alpha=0.9))
-        self.sidebar.add(t)
         self.sidebar.set_valign(Gtk.Align.FILL)
         self.sidebar.set_halign(Gtk.Align.START)
+        sidebar_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        sidebar_box.override_background_color(0, Gdk.RGBA(
+                                red=0.1, green=0.1, blue=0.1, alpha=0.9))
+        self.sidebar.add(sidebar_box)
+        self.t = NewTaskWin()
+        # This button trigger the task creation process :
+        self.new_task_button = Gtk.Button.new_with_label("Créer")
+        self.new_task_button.connect("clicked", self.on_task_create)
+        sidebar_box.add(self.t)
+        sidebar_box.add(self.new_task_button)
         self.overlay.add_overlay(self.sidebar)
         
         # Below notebook, add tasks management buttons box :
-        self.buttons_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        self.buttons_box.set_margin_top(5)
+        self.buttons_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL,
+                                    margin_left=5,
+                                    margin_bottom=5,
+                                    margin_right=5)
         self.main_box.add(self.buttons_box)
 
         # Create tasks mgt menu:
@@ -518,6 +523,15 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         else:
             notebook.get_nth_page(page_num).sel.set_mode(
                 Gtk.SelectionMode.NONE)
+                
+    def on_task_create(self, widget):
+        """Get active instance of ToDoListBox from self.tnotebook
+        and pass it args from active instance of NewTaskWin (the one
+        in sidebar)"""
+        child = self.get_current_child()
+        task, date, time = self.t.on_create_task()
+        child.on_create_new(task, date, time)
+        self.toggle_visibility(self.buttons[0], self.sidebar)
 
     def launch_task_move(self, *args):
         """Move the selected task by moving its content
@@ -552,7 +566,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         """Define action to perform on keyboard shortcut,
         here Ctrl + n launches task creation in active page list"""
         self.toggle_visibility(self.buttons[0], self.sidebar)
-        self.sidebar.get_child().task_entry.grab_focus()
+        self.t.task_entry.grab_focus()
 
     def accel_edit_mode_on(self, *args):
         """On keyboard shortcut, toggle switch state,
@@ -620,7 +634,6 @@ class ToDoListBox(Gtk.Box):
         for tache in tdlist:
             self.tdlist_store.append([False, tache, date, time])
         self.current_filter_language = None
-        #~ self.tdlist_store.append([False, "sflk", "kihj", "klljijh"])
 
         # Create a treeview from tasks list :
         self.tdview = Gtk.TreeView(model=self.tdlist_store)
@@ -644,7 +657,7 @@ class ToDoListBox(Gtk.Box):
         self.column_task = Gtk.TreeViewColumn("Description de la tâche",
                                               renderer_task, text=1)
         self.column_task.set_sort_column_id(1)  # Cette colonne sera triable.
-        self.column_task.set_min_width(450)
+        self.column_task.set_expand(True)
         self.column_task.set_resizable(True)
         # ... and add it to the treeview :
         self.tdview.append_column(self.column_task)
@@ -671,7 +684,7 @@ class ToDoListBox(Gtk.Box):
         # Create a scrollable container that will receive the treeview :
         self.scrollable_treelist = Gtk.ScrolledWindow()
         self.scrollable_treelist.set_vexpand(True)
-        self.scrollable_treelist.set_border_width(5)
+        #~ self.scrollable_treelist.set_border_width(5)
         self.scrollable_treelist.add(self.tdview)
         # Add this container to the todo list box :
         self.add(self.scrollable_treelist)
@@ -825,17 +838,7 @@ class ToDoListBox(Gtk.Box):
         except UnboundLocalError:
             return False
 
-    def on_launch_creation(self, parent_project, callback):
-        """Show input box to create new task
-        defined by 'project_name'. The new task will be
-        created by the callback function"""
-        self.update_percent = callback
-        self.ta = NewTaskWin("Créer une nouvelle tâche dans « " +
-                           parent_project + " »", self.on_create_new,
-                           self.update_percent)
-        self.ta.show()
-
-    def on_create_new(self, text, date, time): #, inputbox, update_percent):
+    def on_create_new(self, text, date, time):
         """Append task at the end of ListStore"""
         self.tdlist_store.append([False, text, date, time])
 
@@ -844,16 +847,9 @@ class NewTaskWin(Gtk.Grid):
     """Initialize a grid with all widgets needed for tasks creation.
     This grid is included in a popover."""
 
-    def __init__(self, project, callback_create_func, callback_update_func,
-                                             parent_popover):
+    def __init__(self):
         Gtk.Grid.__init__(self)
-        
-        # Define callback functions and parent widget :
-        self.callback_create_func = callback_create_func
-        self.callback_update_func = callback_update_func
-        self.project = project
-        self.parent = parent_popover
-        
+              
         # Create main container:
         box = Gtk.Grid(column_spacing=20, row_spacing=10, border_width=5)
         self.add(box)
@@ -899,11 +895,6 @@ class NewTaskWin(Gtk.Grid):
         # Allow <Entrée> button to launch action :
         self.time.connect("activate", self.on_create_task)
         
-        # This button launch the task creation :
-        self.task_create_button = Gtk.Button("Créer")
-        self.task_create_button.connect("clicked", self.on_create_task)
-        box.attach(self.task_create_button, 0, 5, 3, 1)
-
         self.show_all()
 
     def get_cal_date(self, widget, calendar):
@@ -912,17 +903,15 @@ class NewTaskWin(Gtk.Grid):
         date = str(day) + "/" + str(month) + "/" + str(year)
         self.cal_entry.set_text(date)
 
-    def on_create_task(self, button):
+    def on_create_task(self):
         """Send entry text to parent class object (here : HeaderBarWindow)
         callback function"""
         if self.task_entry.get_text() != "":
             task = self.task_entry.get_text()
             date = self.cal_entry.get_text()
             time = self.time.get_value()
-            self.project.
-            self.callback_create_func(task, date, time)
-            self.callback_update_func()
-            self.parent.hide()
+            return (task, date, time)
+
 
 class ConfirmDialog(Gtk.Dialog):
     """A generic yes/no dialog"""
