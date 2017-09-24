@@ -27,11 +27,13 @@ from gi.repository import Gtk
 #~ from gi.repository import Pango
 import sys
 import os
+import json
 
-books = [["Tolstoy, Leo", ["War and Peace", True], ["Anna Karenina", False]],
-         ["Shakespeare, William", ["Hamlet", False],
-             ["Macbeth", True], ["Othello", False]],
-         ["Tolkien, J.R.R.", ["The Lord of the Rings", False]]]
+#~ books = [["Tolstoy, Leo", ["War and Peace", True], ["Anna Karenina", False]],
+         #~ ["Shakespeare, William", ["Hamlet", False],
+             #~ ["Macbeth", True], ["Othello", False]],
+         #~ ["Tolkien, J.R.R.", ["The Lord of the Rings", False]]]
+books = []
 
 
 class MyWindow(Gtk.ApplicationWindow):
@@ -188,20 +190,57 @@ class MyWindow(Gtk.ApplicationWindow):
     def on_save_list(self, project_name):
         """Save list in a project named file,
         tasks are written row by row in file, line by line"""
-        # TODO : compléter l'enregistrement du fichier au format :
-        # [ auteur, [livre 1, livre2]]
         with open(share_dir + "/test", 'w') as file_out:
+            tree = []
             for row in self.store:
                 i = 0
                 treeiter = self.store.get_iter(row.path)
-                print(self.store.get_value(treeiter, 0))
-                print(self.store.iter_n_children(treeiter))
+                parent = self.store.get_value(treeiter, 0)
+                parent_list, pstate_list = [], []
+                parent_state = { "State" : self.store.get_value(treeiter, 1)}
+                pstate_list.append(parent_state)
+                parent_list.append(pstate_list)
+                children_list = []
+                children_dict = {}
+                # TODO : use iter_depth pour gérer récursivement les sous-tâches
                 while i < self.store.iter_n_children(treeiter):
-                    children = self.store.iter_nth_child(treeiter, i)
-                    print(self.store.get_value(children, 0))
+                    child = self.store.iter_nth_child(treeiter, i)
+                    children_dict[self.store.get_value(child, 0)] = \
+                                    self.store.get_value(child, 1)
                     i += 1
+                children_list.append(children_dict)
+                print(children_list)
+                parent_list.append(children_list)
+                print(parent_list)
+                parentd = { parent : parent_list }
+                tree.append(parentd)
+            json.dump(tree, file_out, indent=4)
 
-                file_out.write("\n")
+    def on_load_list(self):
+        """Load the file at startup"""
+        with open(share_dir + "/test", 'r') as f:
+            for i in json.load(f):
+                for k, v in i.items():
+                    #~ print("Auteur = " + k)
+                    etat = v[0]
+                    #~ print(etat)
+                    piter = self.store.append(None, [k, v[0][0]['State']])
+                    enfants = v[1]
+                    #~ print(enfants)
+                    for j in enfants:
+                        for book in j.keys():
+                            print(j, type(j), book, j[book])
+                            self.store.append(piter, [book, j[book]])
+            #~ for i in range(len(books)):
+            #~ # the iter piter is returned when appending the author in the first column
+            #~ # and False in the second
+            #~ piter = self.store.append(None, [books[i][0], False])
+            #~ # append the books and the associated boolean value as children of
+            #~ # the author
+            #~ j = 1
+            #~ while j < len(books[i]):
+                #~ self.store.append(piter, books[i][j])
+                #~ j += 1
 
 class MyApplication(Gtk.Application):
 
@@ -211,6 +250,7 @@ class MyApplication(Gtk.Application):
     def do_activate(self):
         win = MyWindow(self)
         win.show_all()
+        win.on_load_list()
 
     def do_startup(self):
         Gtk.Application.do_startup(self)
