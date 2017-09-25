@@ -92,10 +92,13 @@ class MyWindow(Gtk.ApplicationWindow):
         self.delete_task.connect("clicked", self.on_delete_task)
         self.save = Gtk.Button.new_with_label("Save")
         self.save.connect("clicked", self.on_save_list)
+        self.test = Gtk.Button.new_with_label("Test")
+        self.test.connect("clicked", self.select_next_row)
         bbox.add(self.new_task)
         bbox.add(self.new_subtask)
         bbox.add(self.delete_task)
         bbox.add(self.save)
+        bbox.add(self.test)
 
         self.box.add(bbox)
         # add the treeview to the window
@@ -186,6 +189,33 @@ class MyWindow(Gtk.ApplicationWindow):
                 citer = self.store.iter_next(citer)
             # if they do, the author as well is selected; otherwise it is not
             self.store[piter][1] = all_selected
+            
+    def select_next_row(self, widget):
+        """Test de sélection séquentielle des lignes"""
+        i = 0
+        for row in self.store:
+            i += 1
+            path = row.path
+            iter = self.store.get_iter(path)
+            #~ iter = self.store.iter_parent(iter)
+            path.down()
+            print(iter, self.store.iter_has_child(iter), self.store.get_value(iter, 0))
+            for i in range(self.store.iter_n_children(iter)):
+                citer = self.store.iter_nth_child(iter, i)
+                print(citer, self.store.get_value(citer, 0))
+                if self.store.iter_has_child(citer):
+                    citer = self.store.iter_nth_child(citer, 1)
+                    self.store.get_path(citer).down()
+                else:
+                    self.store.iter_next(citer)
+            #~ print(self.store.get_iter(path))
+            #~ path.get_indices()
+            #~ path.down()
+            #~ print(self.store.get_iter(path))
+            
+            #~ path.free()
+            #~ self.view.row_activated(path.down(), 1)
+        print(i)
 
     def on_save_list(self, project_name):
         """Save list in a project named file,

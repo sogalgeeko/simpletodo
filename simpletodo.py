@@ -3,6 +3,7 @@
 
 import os
 import sys
+import json
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk, GdkPixbuf, Gio
@@ -22,7 +23,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         self.set_icon_name("simpletodo")
 
         headerb = Gtk.HeaderBar()
-        headerb.set_show_close_button(False)
+        headerb.set_show_close_button(True)
         headerb.props.title = "Simple Todo"
         self.set_titlebar(headerb)
 
@@ -279,8 +280,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         # Create tasks management buttons :
         self.buttons = []
         for i, icon in enumerate(["list-add-symbolic",
-                                  "list-remove-symbolic",
-                                  "system-shutdown-symbolic"]):
+                                  "list-remove-symbolic"]):
             img = Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.BUTTON)
             button = Gtk.Button()
             self.buttons.append(button)
@@ -320,10 +320,10 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         self.projects_cbox = Gtk.ComboBoxText()
         for project_name in os.listdir(share_dir):
             self.projects_cbox.append_text(project_name)
-        self.projects_cbox.set_margin_end(5)
+        #~ self.projects_cbox.set_margin_end(5)
         self.buttons_box.pack_start(label, True, True, 0)
         self.buttons_box.pack_start(self.projects_cbox, True, True, 0)
-        self.buttons_box.pack_end(self.buttons[2], True, True, 0)
+        #~ self.buttons_box.pack_end(self.buttons[2], True, True, 0)
 
         # As long as "Édition" mode not active,
         # some buttons remain inactive :
@@ -335,7 +335,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         # Add tooltips to buttons that use icon :
         self.buttons[0].set_tooltip_text("Nouvelle tâche")
         self.buttons[1].set_tooltip_text("Supprimer la tâche")
-        self.buttons[2].set_tooltip_text("Enregistrer et fermer")
+        #~ self.buttons[2].set_tooltip_text("Enregistrer et fermer")
         tasks_menu_button.set_tooltip_text("Gérer les tâches")
         self.task_up.set_tooltip_text("Déplacer la tâche vers le haut")
         self.task_down.set_tooltip_text("Déplacer la tâche vers le bas")
@@ -373,7 +373,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
 
     def update_percent_on_change(self, *args):
         """Calculate percentage of done tasks
-        based on presence of 'True' in child's tdlist_store"""
+        based on presence of 'True' in child's store"""
         target_child = locals()['args'][2]
         percent_done = self.tnotebook.get_nth_page(
             target_child).get_percent_done()
@@ -481,15 +481,10 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         """ Launch action depending on clicked button """
         project_name = self.get_project_name()
         if widget == self.buttons[0]:
-
             self.toggle_visibility(self.buttons[0], self.task_new_popover)
         elif widget == self.buttons[1]:
             self.get_current_child().on_row_delete(
                 self.update_percent_on_check)
-        elif widget == self.buttons[2]:
-            if self.do_delete_event('delete-event') == False:
-                self.on_save_notebook()
-                app.quit()
         elif widget == self.task_up:
             self.get_current_child().on_task_up()
         elif widget == self.task_down:
@@ -630,13 +625,13 @@ class ToDoListBox(Gtk.Box):
 
         self.callback_percent = callback
         # Create tasks list and declare its future content :
-        self.tdlist_store = Gtk.ListStore(bool, str, str, float)
-        for tache in tdlist:
-            self.tdlist_store.append([False, tache, date, time])
+        self.store = Gtk.TreeStore(bool, str, str, float)
+        #~ for tache in tdlist:
+            #~ self.store.append([False, tache, date, time])
         self.current_filter_language = None
 
         # Create a treeview from tasks list :
-        self.tdview = Gtk.TreeView(model=self.tdlist_store)
+        self.view = Gtk.TreeView(model=self.store)
 
         # Create "task done" check box :
         renderer_check = Gtk.CellRendererToggle()
@@ -645,7 +640,7 @@ class ToDoListBox(Gtk.Box):
         column_check = Gtk.TreeViewColumn("Finie", renderer_check,
                                           active=0)
         # ... and add it to the treeview :
-        self.tdview.append_column(column_check)
+        self.view.append_column(column_check)
 
         # Create "task name" cells...
         renderer_task = Gtk.CellRendererText()
@@ -660,38 +655,38 @@ class ToDoListBox(Gtk.Box):
         self.column_task.set_expand(True)
         self.column_task.set_resizable(True)
         # ... and add it to the treeview :
-        self.tdview.append_column(self.column_task)
+        self.view.append_column(self.column_task)
 
         # Create "task due date" cells...
         renderer_date = Gtk.CellRendererText()
         self.column_date = Gtk.TreeViewColumn("Échéance", renderer_date, text=2)
         self.column_date.set_sort_column_id(1)  # Cette colonne sera triable.
         self.column_date.set_resizable(True)
-        self.tdview.append_column(self.column_date)
+        self.view.append_column(self.column_date)
 
         # Create "task timer" cells...
         renderer_timer = Gtk.CellRendererText()
         self.column_timer = Gtk.TreeViewColumn("Temps passé", renderer_timer,
                                                                 text=3)
         self.column_timer.set_resizable(True)                                                                
-        self.tdview.append_column(self.column_timer)
+        self.view.append_column(self.column_timer)
         
         # By default, we can't select cells
         # (only active Selection mode allows it) :
-        self.sel = self.tdview.get_selection()
+        self.sel = self.view.get_selection()
         self.sel.set_mode(Gtk.SelectionMode.NONE)
 
         # Create a scrollable container that will receive the treeview :
         self.scrollable_treelist = Gtk.ScrolledWindow()
         self.scrollable_treelist.set_vexpand(True)
         #~ self.scrollable_treelist.set_border_width(5)
-        self.scrollable_treelist.add(self.tdview)
+        self.scrollable_treelist.add(self.view)
         # Add this container to the todo list box :
         self.add(self.scrollable_treelist)
         self.set_child_packing(self.scrollable_treelist, True, True, 0, 0)
 
     def get_selected_task(self):
-        selection = self.tdview.get_selection()
+        selection = self.view.get_selection()
         try:
             (model, pathlist) = selection.get_selected_rows()
             for path in pathlist:
@@ -705,14 +700,14 @@ class ToDoListBox(Gtk.Box):
     def get_tasks_amount(self):
         """Returns the number of tasks in project"""
         c = 0
-        for row in self.tdlist_store:
+        for row in self.store:
             c += 1
         return c
 
     def get_tasks_done(self):
         """Returns the amount of completed tasks"""
         c = 0
-        for row in self.tdlist_store:
+        for row in self.store:
             (state, pathlist, date, time) = row
             if state is True:
                 c += 1
@@ -730,9 +725,9 @@ class ToDoListBox(Gtk.Box):
             return 0
 
     def on_move_task_to_list(self, text):
-        """Insert moved task into selected tdlist_store"""
+        """Insert moved task into selected store"""
         task = text[1]
-        self.tdlist_store.insert_with_valuesv(-1, [1], [task])
+        self.store.insert_with_valuesv(-1, [1], [task])
 
     def on_startup_file_load(self, project_name):
         """On app launch, load project file and format entries"""
@@ -742,68 +737,118 @@ class ToDoListBox(Gtk.Box):
         if os.path.getsize(share_dir + "/" + project_name) == 0:
             pass
         else:
-            # If it exists, load its entries into self.tdlist_store :
-            file_len, c = 0, 0
-            with open(share_dir + "/" + project_name, 'r') as file_in:
-                for line in file_in:
-                    file_len += 1
-                    line = line.strip().split(',')
-                    # Format tasks name and append them to treestore :
-                    entry = []
-                    for i in ([0,1,2]):
-                        entry.append(line[i])
-                    entry.append(float(line[3]))
-                    self.tdlist_store.append(entry)
-                    # Restore check boxes state according to line[0] content :
-                    if entry[0] == "False":
-                        iter = self.tdlist_store.get_iter(c)
-                        self.tdlist_store.set_value(iter, 0, False)
-                    c += 1
+            # If it exists, load its entries into self.store :
+            with open(share_dir + "/" + project_name, 'r') as f:
+                for i in json.load(f):
+                    for k, v in i.items():
+                        #~ print("Auteur = " + k)
+                        state = v[0]
+                        #~ print(etat)
+                        piter = self.store.append(None, [k, v[0][0]['State']])
+                        enfants = v[1]
+                        #~ print(enfants)
+                        for j in enfants:
+                            for task in j.keys():
+                                print(j, type(j), task, j[task])
+                                self.store.append(piter, [task, j[task]])
 
     def on_task_check(self, widget, path):
         """What to do when checkbox is un/activated"""
         # Toggle check box state :
-        self.tdlist_store[path][0] = not self.tdlist_store[path][0]
+        # the boolean value of the selected row
+        current_value = self.store[path][1]
+        # change the boolean value of the selected row in the model
+        self.store[path][1] = not current_value
+        # new current value!
+        current_value = not current_value
+        # if length of the path is 1 (that is, if we are selecting an author)
+        if len(path) == 1:
+            # get the iter associated with the path
+            piter = self.store.get_iter(path)
+            # get the iter associated with its first child
+            citer = self.store.iter_children(piter)
+            # while there are children, change the state of their boolean value
+            # to the value of the author
+            while citer is not None:
+                self.store[citer][1] = current_value
+                citer = self.store.iter_next(citer)
+        # if the length of the path is not 1 (that is, if we are selecting a
+        # book)
+        elif len(path) != 1:
+            # get the first child of the parent of the book (the first book of
+            # the author)
+            citer = self.store.get_iter(path)
+            piter = self.store.iter_parent(citer)
+            citer = self.store.iter_children(piter)
+            # check if all the children are selected
+            all_selected = True
+            while citer is not None:
+                if self.store[citer][1] == False:
+                    all_selected = False
+                    break
+                citer = self.store.iter_next(citer)
+            # if they do, the author as well is selected; otherwise it is not
+            self.store[piter][1] = all_selected
         self.callback_percent()
 
     def check_all_tasks(self, project_name, new_state):
         """Change task state according to variable"""
-        for i, row in enumerate(self.tdlist_store):
+        for i, row in enumerate(self.store):
             (current_state, task, date, time) = row
-            iter = self.tdlist_store.get_iter(i)
+            iter = self.store.get_iter(i)
             if new_state is False:
-                self.tdlist_store[i][0] = False
+                self.store[i][0] = False
             elif new_state is True:
-                self.tdlist_store.set(iter, 0, [new_state])
+                self.store.set(iter, 0, [new_state])
             else:
-                self.tdlist_store[i][0] = not self.tdlist_store[i][0]
+                self.store[i][0] = not self.store[i][0]
 
         self.callback_percent()
 
     def on_task_edit(self, widget, path, text):
         """What to do when cell (task) is edited"""
-        self.tdlist_store[path][1] = text
+        self.store[path][1] = text
 
     def on_save_list(self, project_name):
         """Save list in a project named file,
         tasks are written row by row in file, line by line"""
         with open(share_dir + "/" + project_name, 'w') as file_out:
-            for row in self.tdlist_store:
-                for i in [0,1,2,3]:
-                    file_out.write(str(row[i]) + ',')
-                file_out.write("\n")
+            tree = []
+            for row in self.store:
+                i = 0
+                treeiter = self.store.get_iter(row.path)
+                parent = self.store.get_value(treeiter, 0)
+                parent_list, pstate_list = [], []
+                parent_state = { "State" : self.store.get_value(treeiter, 1)}
+                pstate_list.append(parent_state)
+                parent_list.append(pstate_list)
+                children_list = []
+                children_dict = {}
+                # TODO : use iter_depth pour gérer récursivement les sous-tâches
+                while i < self.store.iter_n_children(treeiter):
+                    child = self.store.iter_nth_child(treeiter, i)
+                    children_dict[self.store.get_value(child, 0)] = \
+                                    self.store.get_value(child, 1)
+                    i += 1
+                children_list.append(children_dict)
+                print(children_list)
+                parent_list.append(children_list)
+                print(parent_list)
+                parentd = { parent : parent_list }
+                tree.append(parentd)
+            json.dump(tree, file_out, indent=4)
 
     def on_task_up(self):
         """Move selected task up"""
         try:
-            selection = self.tdview.get_selection()
-            self.tdlist_store, paths = selection.get_selected_rows()
+            selection = self.view.get_selection()
+            self.store, paths = selection.get_selected_rows()
             # Get selected task treeiter :
             for path in paths:
-                iter = self.tdlist_store.get_iter(path)
+                iter = self.store.get_iter(path)
             # And move it before the previous iter :
-            self.tdlist_store.move_before(iter,
-                                          self.tdlist_store.iter_previous(
+            self.store.move_before(iter,
+                                          self.store.iter_previous(
                                               iter))
         except UnboundLocalError:
             return False
@@ -811,14 +856,14 @@ class ToDoListBox(Gtk.Box):
     def on_task_down(self):
         """Move selected task up"""
         try:
-            selection = self.tdview.get_selection()
-            self.tdlist_store, paths = selection.get_selected_rows()
+            selection = self.view.get_selection()
+            self.store, paths = selection.get_selected_rows()
             # Get selected task treeiter :
             for path in paths:
-                iter = self.tdlist_store.get_iter(path)
+                iter = self.store.get_iter(path)
             # And move it after the next iter :
-            self.tdlist_store.move_after(iter,
-                                         self.tdlist_store.iter_next(iter))
+            self.store.move_after(iter,
+                                         self.store.iter_next(iter))
         except UnboundLocalError:
             return False
 
@@ -827,20 +872,20 @@ class ToDoListBox(Gtk.Box):
         try:
             # Get selected row coordinates
             # (as a tuple(ListStore, "row path")) :
-            selection = self.tdview.get_selection()
-            self.tdlist_store, paths = selection.get_selected_rows()
+            selection = self.view.get_selection()
+            self.store, paths = selection.get_selected_rows()
             # Get selected task (row) treeiter :
             for path in paths:
-                iter = self.tdlist_store.get_iter(path)
+                iter = self.store.get_iter(path)
             # And remove it :
-            self.tdlist_store.remove(iter)
+            self.store.remove(iter)
             update_percent()
         except UnboundLocalError:
             return False
 
     def on_create_new(self, text, date, time):
         """Append task at the end of ListStore"""
-        self.tdlist_store.append([False, text, date, time])
+        self.store.append(None, [False, text, date, time])
 
 
 class NewTaskWin(Gtk.Grid):
