@@ -224,6 +224,8 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         self.t = NewTaskWin()
         # This button trigger the task creation process :
         self.new_task_button = Gtk.Button.new_with_label("Créer")
+        self.new_task_button.set_margin_left(5)
+        self.new_task_button.set_margin_right(5)
         self.new_task_button.connect("clicked", self.on_task_create)
         sidebar_box.add(self.t)
         sidebar_box.add(self.new_task_button)
@@ -524,8 +526,8 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         and pass it args from active instance of NewTaskWin (the one
         in sidebar)"""
         child = self.get_current_child()
-        task, date, time = self.t.on_create_task()
-        child.on_create_new(task, date, time)
+        task, date, is_subtask = self.t.on_create_task()
+        child.on_create_new(task, date, is_subtask)
         self.toggle_visibility(self.buttons[0], self.sidebar)
 
     def launch_task_move(self, *args):
@@ -625,7 +627,7 @@ class ToDoListBox(Gtk.Box):
 
         self.callback_percent = callback
         # Create tasks list and declare its future content :
-        self.store = Gtk.TreeStore(bool, str, str, float)
+        self.store = Gtk.TreeStore(bool, str, str)
         #~ for tache in tdlist:
             #~ self.store.append([False, tache, date, time])
         self.current_filter_language = None
@@ -663,18 +665,11 @@ class ToDoListBox(Gtk.Box):
         self.column_date.set_sort_column_id(1)  # Cette colonne sera triable.
         self.column_date.set_resizable(True)
         self.view.append_column(self.column_date)
-
-        # Create "task timer" cells...
-        renderer_timer = Gtk.CellRendererText()
-        self.column_timer = Gtk.TreeViewColumn("Temps passé", renderer_timer,
-                                                                text=3)
-        self.column_timer.set_resizable(True)                                                                
-        self.view.append_column(self.column_timer)
         
         # By default, we can't select cells
         # (only active Selection mode allows it) :
         self.sel = self.view.get_selection()
-        self.sel.set_mode(Gtk.SelectionMode.NONE)
+        self.sel.set_mode(Gtk.SelectionMode.BROWSE)
 
         # Create a scrollable container that will receive the treeview :
         self.scrollable_treelist = Gtk.ScrolledWindow()
@@ -685,15 +680,20 @@ class ToDoListBox(Gtk.Box):
         self.add(self.scrollable_treelist)
         self.set_child_packing(self.scrollable_treelist, True, True, 0, 0)
 
+    def get_selected_iter(self):
+        """Get the iter in the selected row and return it"""
+        siter = self.view.get_selection()
+        model, paths = siter.get_selected_rows()
+        for path in paths:
+            treeiter = model.get_iter(path)
+        return treeiter
+
     def get_selected_task(self):
         selection = self.view.get_selection()
         try:
             (model, pathlist) = selection.get_selected_rows()
             for path in pathlist:
-                treeiter = model.get_iter(path)
-                state = model.get_value(treeiter, 0)
-                task = model.get_value(treeiter, 1)
-            return [str(state), str(task)]
+                return self.tree_dumper(model, path)
         except UnboundLocalError:
             return False
 
@@ -708,7 +708,7 @@ class ToDoListBox(Gtk.Box):
         """Returns the amount of completed tasks"""
         c = 0
         for row in self.store:
-            (state, pathlist, date, time) = row
+            (state, pathlist, date) = row
             if state is True:
                 c += 1
         return c
@@ -724,10 +724,24 @@ class ToDoListBox(Gtk.Box):
         else:
             return 0
 
-    def on_move_task_to_list(self, text):
+    def on_move_task_to_list(self, task):
         """Insert moved task into selected store"""
-        task = text[1]
-        self.store.insert_with_valuesv(-1, [1], [task])
+        # TODO : les enfants sont perdus lors du déplacement
+        #~ self.store.insert_with_values(None, -1, [0, 1, 2], task)
+        self.tree_loader(task)
+        
+    def tree_loader(self, tree):
+        """Load the tree, insert parent values in a row then 
+        append its children if any"""
+        for i in tree:
+            for k, v in i.items():
+                state = v[0]
+                piter = self.store.append(None, [v[0][0]['State'], k,
+                                                v[0][1]['Date']])
+                enfants = v[1]
+                for j in enfants:
+                    for task in j.keys():
+                        self.store.append(piter, [task, j[task], ""])
 
     def on_startup_file_load(self, project_name):
         """On app launch, load project file and format entries"""
@@ -739,26 +753,15 @@ class ToDoListBox(Gtk.Box):
         else:
             # If it exists, load its entries into self.store :
             with open(share_dir + "/" + project_name, 'r') as f:
-                for i in json.load(f):
-                    for k, v in i.items():
-                        #~ print("Auteur = " + k)
-                        state = v[0]
-                        #~ print(etat)
-                        piter = self.store.append(None, [k, v[0][0]['State']])
-                        enfants = v[1]
-                        #~ print(enfants)
-                        for j in enfants:
-                            for task in j.keys():
-                                print(j, type(j), task, j[task])
-                                self.store.append(piter, [task, j[task]])
+                self.tree_loader(json.load(f))
 
     def on_task_check(self, widget, path):
         """What to do when checkbox is un/activated"""
         # Toggle check box state :
         # the boolean value of the selected row
-        current_value = self.store[path][1]
+        current_value = self.store[path][0]
         # change the boolean value of the selected row in the model
-        self.store[path][1] = not current_value
+        self.store[path][0] = not current_value
         # new current value!
         current_value = not current_value
         # if length of the path is 1 (that is, if we are selecting an author)
@@ -770,7 +773,7 @@ class ToDoListBox(Gtk.Box):
             # while there are children, change the state of their boolean value
             # to the value of the author
             while citer is not None:
-                self.store[citer][1] = current_value
+                self.store[citer][0] = current_value
                 citer = self.store.iter_next(citer)
         # if the length of the path is not 1 (that is, if we are selecting a
         # book)
@@ -783,18 +786,18 @@ class ToDoListBox(Gtk.Box):
             # check if all the children are selected
             all_selected = True
             while citer is not None:
-                if self.store[citer][1] == False:
+                if self.store[citer][0] == False:
                     all_selected = False
                     break
                 citer = self.store.iter_next(citer)
             # if they do, the author as well is selected; otherwise it is not
-            self.store[piter][1] = all_selected
+            self.store[piter][0] = all_selected
         self.callback_percent()
 
     def check_all_tasks(self, project_name, new_state):
         """Change task state according to variable"""
         for i, row in enumerate(self.store):
-            (current_state, task, date, time) = row
+            (current_state, task, date) = row
             iter = self.store.get_iter(i)
             if new_state is False:
                 self.store[i][0] = False
@@ -812,31 +815,39 @@ class ToDoListBox(Gtk.Box):
     def on_save_list(self, project_name):
         """Save list in a project named file,
         tasks are written row by row in file, line by line"""
+        # TODO :  fix dumper arg 'path' in case of saving list
         with open(share_dir + "/" + project_name, 'w') as file_out:
-            tree = []
+            json_tree_object = []
             for row in self.store:
-                i = 0
-                treeiter = self.store.get_iter(row.path)
-                parent = self.store.get_value(treeiter, 0)
-                parent_list, pstate_list = [], []
-                parent_state = { "State" : self.store.get_value(treeiter, 1)}
-                pstate_list.append(parent_state)
-                parent_list.append(pstate_list)
-                children_list = []
-                children_dict = {}
-                # TODO : use iter_depth pour gérer récursivement les sous-tâches
-                while i < self.store.iter_n_children(treeiter):
-                    child = self.store.iter_nth_child(treeiter, i)
-                    children_dict[self.store.get_value(child, 0)] = \
-                                    self.store.get_value(child, 1)
-                    i += 1
-                children_list.append(children_dict)
-                print(children_list)
-                parent_list.append(children_list)
-                print(parent_list)
-                parentd = { parent : parent_list }
-                tree.append(parentd)
-            json.dump(tree, file_out, indent=4)
+                json_tree_object.append(self.tree_dumper(self.store))
+            json.dump(json_tree_object, file_out, indent=4)
+
+    def tree_dumper(self, treemodel, path):
+        tree = []
+        treeiter = treemodel.get_iter(path)
+        parent = treemodel.get_value(treeiter, 1)
+        parent_list, pstate_list = [], []
+        parent_state = { "State" : treemodel.get_value(treeiter, 0)}
+        parent_date = { "Date" : treemodel.get_value(treeiter, 2)}
+        pstate_list.append(parent_state)
+        pstate_list.append(parent_date)
+        parent_list.append(pstate_list)
+        children_list = []
+        j = 0
+        # TODO : use iter_depth pour gérer récursivement les sous-tâches
+        while j < treemodel.iter_n_children(treeiter):
+            children_dict = {}
+            child = treemodel.iter_nth_child(treeiter, j)
+            children_dict[treemodel.get_value(child, 0)] = \
+                            treemodel.get_value(child, 1)
+            children_list.append(children_dict)
+            j += 1
+        print(children_list)
+        parent_list.append(children_list)
+        print(parent_list)
+        parentd = { parent : parent_list }
+        tree.append(parentd)
+        return tree
 
     def on_task_up(self):
         """Move selected task up"""
@@ -847,9 +858,7 @@ class ToDoListBox(Gtk.Box):
             for path in paths:
                 iter = self.store.get_iter(path)
             # And move it before the previous iter :
-            self.store.move_before(iter,
-                                          self.store.iter_previous(
-                                              iter))
+            self.store.move_before(iter, self.store.iter_previous(iter))
         except UnboundLocalError:
             return False
 
@@ -862,8 +871,7 @@ class ToDoListBox(Gtk.Box):
             for path in paths:
                 iter = self.store.get_iter(path)
             # And move it after the next iter :
-            self.store.move_after(iter,
-                                         self.store.iter_next(iter))
+            self.store.move_after(iter, self.store.iter_next(iter))
         except UnboundLocalError:
             return False
 
@@ -883,9 +891,19 @@ class ToDoListBox(Gtk.Box):
         except UnboundLocalError:
             return False
 
-    def on_create_new(self, text, date, time):
-        """Append task at the end of ListStore"""
-        self.store.append(None, [False, text, date, time])
+    def on_create_new(self, text, date, is_subtask):
+        """Append task at the end of ListStore, if it is a subtask
+        append it to the selected iter as long as it is not a subtask
+        itself. In which case, append it to its parent"""
+        if not is_subtask:
+            self.store.append(None, [False, text, date])
+        else:
+            parent = self.get_selected_iter()
+            if self.store.iter_depth(parent) == 0:
+                self.store.append(parent, [False, text, date])
+            else:
+                parent = self.store.iter_parent(parent)
+                self.store.append(parent, [False, text, date])
 
 
 class NewTaskWin(Gtk.Grid):
@@ -924,21 +942,14 @@ class NewTaskWin(Gtk.Grid):
         self.calendar.connect("day-selected-double-click", self.get_cal_date,
                                                         self.calendar)
         # Also offer a button to select date :                                                            
-        cal_action_butt = Gtk.Button.new_with_label("Définir")
+        cal_action_butt = Gtk.Button.new_with_label("Définir la date")
         cal_action_butt.connect("clicked", self.get_cal_date, self.calendar)
         box.attach(cal_action_butt, 0, 3, 3, 1)
-        # Label for task duration :
-        label3 = Gtk.Label("Durée")
-        box.attach(label3, 0, 4, 1, 1)
-        # Estimated task duration selection widget :
-        self.time = Gtk.SpinButton()
-        box.attach(self.time, 1, 4 , 2, 1)
-        adjustment = Gtk.Adjustment(0, 0, 24, 1, 1, 0)
-        self.time.set_adjustment(adjustment)
-        self.time.set_digits(1)
-        self.time.set_numeric(True)
-        # Allow <Entrée> button to launch action :
-        self.time.connect("activate", self.on_create_task)
+        
+        # Create the task as subtask of selected row ?
+        self.checkbox_create_subtask = Gtk.CheckButton.new_with_label(
+                                        "Créer en tant que sous-tâche")
+        box.attach(self.checkbox_create_subtask, 0, 4, 3, 1)
         
         self.show_all()
 
@@ -954,8 +965,8 @@ class NewTaskWin(Gtk.Grid):
         if self.task_entry.get_text() != "":
             task = self.task_entry.get_text()
             date = self.cal_entry.get_text()
-            time = self.time.get_value()
-            return (task, date, time)
+            is_subtask = self.checkbox_create_subtask.get_active()
+            return (task, date, is_subtask)
 
 
 class ConfirmDialog(Gtk.Dialog):
