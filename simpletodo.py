@@ -8,10 +8,6 @@ import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk, GdkPixbuf, Gio
 
-# TODO : réécrire le processus de création de tâches de façon + directe:
-# supprimer bouton de newtaskwin pour l'intégrer à "self", ce bouton lance une
-# fonction qui récupère les infos de newtaskwin et les passe à l'instance de TodoListBox active
-# pour créer la tâche.
 
 class HeaderBarWindow(Gtk.ApplicationWindow):
     """ Initialize window with HeaderBar """
@@ -26,11 +22,6 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         headerb.set_show_close_button(True)
         headerb.props.title = "Simple Todo"
         self.set_titlebar(headerb)
-
-        # Some Gio params :
-        action = Gio.SimpleAction.new("project_dialog", None)
-        #~ action.connect("activate", self.toggle_visibility, self.newtab_popover)
-        self.add_action(action)
 
         # Box receiving project management buttons :
         navbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
@@ -82,7 +73,8 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         newproject_box.pack_start(self.newproject_create_button, True, True, 1)
         # Connect newtab button to "show popover" function :
         newtab.connect("clicked", self.toggle_visibility, 
-                                        self.newtab_popover)
+                                        self.newtab_popover,
+                                        self.newproject_entry)
         # Tab removal button :
         deltab = Gtk.Button()
         img = Gtk.Image.new_from_icon_name("list-remove-symbolic",
@@ -184,7 +176,8 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         # Add the box inside the popover :
         self.menu_popover.add(popover_box)
         self.prj_menu.connect("clicked", self.toggle_visibility,
-                                            self.menu_popover)
+                                            self.menu_popover,
+                                            None)
 
         headerb.pack_start(navbox)
         headerb.pack_end(prjbox)
@@ -204,7 +197,6 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         self.tnotebook.set_size_request(550, -1)
         self.tnotebook.popup_enable()
         self.tnotebook.set_scrollable(True)
-        self.tnotebook.connect("switch-page", self.on_page_change)
         self.tnotebook.connect("switch-page", self.update_percent_on_change)
         self.overlay.add(self.tnotebook)
 
@@ -222,11 +214,13 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
                                 red=0.1, green=0.1, blue=0.1, alpha=0.9))
         self.sidebar.add(sidebar_box)
         self.t = NewTaskWin()
+        self.t.set_vexpand(True)
         # This button trigger the task creation process :
-        self.new_task_button = Gtk.Button.new_with_label("Créer")
-        self.new_task_button.set_margin_left(5)
-        self.new_task_button.set_margin_right(5)
-        self.new_task_button.connect("clicked", self.on_task_create)
+        self.new_task_button = Gtk.Button(label="Créer",
+                                            margin_left=5,
+                                            margin_right=5,
+                                            margin_bottom=5)
+        self.new_task_button.connect("clicked", self.launch_task_creation)
         sidebar_box.add(self.t)
         sidebar_box.add(self.new_task_button)
         self.overlay.add_overlay(self.sidebar)
@@ -235,7 +229,8 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         self.buttons_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL,
                                     margin_left=5,
                                     margin_bottom=5,
-                                    margin_right=5)
+                                    margin_right=5,
+                                    spacing=5)
         self.main_box.add(self.buttons_box)
 
         # Create tasks mgt menu:
@@ -243,7 +238,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         tasks_menu_icon = Gtk.Image.new_from_icon_name("view-more-symbolic",
                                                        Gtk.IconSize.BUTTON)
         tasks_menu_button.add(tasks_menu_icon)
-        self.buttons_box.pack_start(tasks_menu_button, True, True, 0)
+        self.buttons_box.pack_start(tasks_menu_button, False, True, 0)
 
         # Define popover :
         self.tasks_menu_popover = Gtk.Popover()
@@ -271,49 +266,22 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
                                   self.toggle_visibility,
                                   self.tasks_menu_popover)
 
-        # Create "Édition" mode switch:
-        self.switch_label = Gtk.Label("Mode édition")
-        self.switch_edit = Gtk.Switch()
-        # When switch become active :
-        self.switch_edit.connect("notify::active",
-                                 self.on_edit_active)
-        self.switch_edit.set_active(False)  # Switch not active by default
-
         # Create tasks management buttons :
         self.buttons = []
         for i, icon in enumerate(["list-add-symbolic",
-                                  "list-remove-symbolic"]):
+                                  "list-remove-symbolic",
+                                  "go-up-symbolic",
+                                  "go-down-symbolic"]):
             img = Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.BUTTON)
             button = Gtk.Button()
             self.buttons.append(button)
             self.buttons[i].set_image(img)
             # Connect them all to an action define later by on_sel_action :
             button.connect("clicked", self.on_sel_action)
-        # ... except "Supprimer" (toggled by "Édition")
-        self.buttons[1].disconnect_by_func(self.on_sel_action)
-        self.buttons[0].disconnect_by_func(self.on_sel_action)
-        self.buttons[0].connect("clicked", self.toggle_visibility, self.sidebar)
 
-        self.buttons_box.pack_start(self.switch_label, True, True, 5)
-        self.buttons_box.pack_start(self.switch_edit, True, True, 5)
         # Pack check_all/uncheck_all buttons on the left :
-        for i, button in enumerate(self.buttons[:2]):
-            self.buttons_box.pack_start(self.buttons[i], True, True, 0)
-        self.buttons[0].set_margin_end(5)
-
-        # Add task order mgt buttons :
-        self.task_up = Gtk.Button()
-        img = Gtk.Image.new_from_icon_name("go-up-symbolic",
-                                           Gtk.IconSize.BUTTON)
-        self.task_up.set_image(img)
-        self.task_up.connect("clicked", self.on_sel_action)
-        self.buttons_box.pack_start(self.task_up, True, True, 10)
-        self.task_down = Gtk.Button()
-        img = Gtk.Image.new_from_icon_name("go-down-symbolic",
-                                           Gtk.IconSize.BUTTON)
-        self.task_down.set_image(img)
-        self.task_down.connect("clicked", self.on_sel_action)
-        self.buttons_box.pack_start(self.task_down, True, True, 0)
+        for i, button in enumerate(self.buttons):
+            self.buttons_box.pack_start(self.buttons[i], False, True, 0)
 
         # Create ComboxBox of target to move selected task to :
         label = Gtk.Label("Déplacer vers")
@@ -322,45 +290,34 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         self.projects_cbox = Gtk.ComboBoxText()
         for project_name in os.listdir(share_dir):
             self.projects_cbox.append_text(project_name)
-        #~ self.projects_cbox.set_margin_end(5)
-        self.buttons_box.pack_start(label, True, True, 0)
-        self.buttons_box.pack_start(self.projects_cbox, True, True, 0)
-        #~ self.buttons_box.pack_end(self.buttons[2], True, True, 0)
-
-        # As long as "Édition" mode not active,
-        # some buttons remain inactive :
-        self.buttons[1].set_sensitive(False)
-        self.task_up.set_sensitive(False)
-        self.task_down.set_sensitive(False)
-        self.projects_cbox.set_sensitive(False)
+        self.projects_cbox.connect("changed", self.launch_task_move)
+        self.buttons_box.pack_end(self.projects_cbox, False, True, 0)
+        self.buttons_box.pack_end(label, False, True, 0)
 
         # Add tooltips to buttons that use icon :
+        tasks_menu_button.set_tooltip_text("Gérer les tâches")
         self.buttons[0].set_tooltip_text("Nouvelle tâche")
         self.buttons[1].set_tooltip_text("Supprimer la tâche")
-        #~ self.buttons[2].set_tooltip_text("Enregistrer et fermer")
-        tasks_menu_button.set_tooltip_text("Gérer les tâches")
-        self.task_up.set_tooltip_text("Déplacer la tâche vers le haut")
-        self.task_down.set_tooltip_text("Déplacer la tâche vers le bas")
+        self.buttons[2].set_tooltip_text("Déplacer la tâche vers le haut")
+        self.buttons[3].set_tooltip_text("Déplacer la tâche vers le bas")
 
         # Keyboard shortcuts :
         accel = Gtk.AccelGroup()
         accel.connect(Gdk.keyval_from_name('n'),
                       Gdk.ModifierType.CONTROL_MASK,
                       Gtk.AccelFlags.VISIBLE,
-                      self.accel_new_task)
-        accel.connect(Gdk.keyval_from_name('e'),
-                      Gdk.ModifierType.CONTROL_MASK,
-                      Gtk.AccelFlags.VISIBLE,
-                      self.accel_edit_mode_on)
+                      self.show_sidebar)
         self.add_accel_group(accel)
         
 
-    def toggle_visibility(self, widget, container):
+    def toggle_visibility(self, widget, container, entry):
         #Toggle popover
         if container.get_visible():
             container.hide()
         else:
             container.show_all()
+            if entry:
+                entry.grab_focus()
 
     def get_project_name(self):
         """Returns the project name"""
@@ -482,46 +439,23 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
     def on_sel_action(self, widget):
         """ Launch action depending on clicked button """
         project_name = self.get_project_name()
+        target = self.get_current_child()
         if widget == self.buttons[0]:
-            self.toggle_visibility(self.buttons[0], self.task_new_popover)
+            self.show_sidebar()
         elif widget == self.buttons[1]:
-            self.get_current_child().on_row_delete(
-                self.update_percent_on_check)
-        elif widget == self.task_up:
-            self.get_current_child().on_task_up()
-        elif widget == self.task_down:
-            self.get_current_child().on_task_down()
+            target.on_row_delete()
+            self.percent_label.set_text(str(target.get_percent_done()) + "%")
+        elif widget == self.buttons[2]:
+            target.on_task_up()
+        elif widget == self.buttons[3]:
+            target.on_task_down()
+            
+    def show_sidebar(self, *args):
+        """Show sidebar and give focus to task description entry"""
+        self.toggle_visibility(self.buttons[0], self.sidebar, self.t.task_entry)
+        #~ self.t.task_entry.grab_focus()
 
-    def on_edit_active(self, switch, gparam, *args):
-        """ What to do when edit switch becomes active """
-        if self.switch_edit.get_active():  # If switch becomes active...
-            # ...make "Supprimer" button active...
-            self.buttons[1].connect("clicked", self.on_sel_action)
-            self.buttons[1].set_sensitive(True)
-            self.task_up.set_sensitive(True)
-            self.task_down.set_sensitive(True)
-            self.projects_cbox.set_sensitive(True)
-            # ...and allow rows (i.e taks) mouse selection :
-            self.get_current_child().sel.set_mode(Gtk.SelectionMode.SINGLE)
-            self.projects_cbox.connect("changed", self.launch_task_move)
-        else:  # If switch becomes inactive, forbid selection...
-            # and deactivate "Supprimer" button :
-            self.get_current_child().sel.set_mode(Gtk.SelectionMode.NONE)
-            self.buttons[1].set_sensitive(False)
-            self.task_up.set_sensitive(False)
-            self.task_down.set_sensitive(False)
-            self.projects_cbox.set_sensitive(False)
-
-    def on_page_change(self, notebook, page, page_num):
-        """If edit switch is active then all todolists can be edited"""
-        if self.switch_edit.get_active():
-            notebook.get_nth_page(page_num).sel.set_mode(
-                Gtk.SelectionMode.SINGLE)
-        else:
-            notebook.get_nth_page(page_num).sel.set_mode(
-                Gtk.SelectionMode.NONE)
-                
-    def on_task_create(self, widget):
+    def launch_task_creation(self, widget):
         """Get active instance of ToDoListBox from self.tnotebook
         and pass it args from active instance of NewTaskWin (the one
         in sidebar)"""
@@ -535,14 +469,16 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         to target then removing it"""
         task_content = self.get_current_child().get_selected_task()
         if task_content:
-            self.get_current_child().on_row_delete(
-                self.update_percent_on_check)
+            #~ self.get_current_child().on_row_delete()
+            self.update_percent_on_check()
             for child in self.tnotebook:
                 project_name = self.tnotebook.get_tab_label_text(child)
                 page_index = self.tnotebook.page_num(child)
                 if project_name == self.projects_cbox.get_active_text():
                     self.tnotebook.set_current_page(page_index)
-                    self.get_current_child().on_move_task_to_list(task_content)
+                    self.get_current_child().tree_loader(task_content)
+        # Unset active entry :
+        self.projects_cbox.set_active(-1)
 
     def on_tasks_check_all(self, *args):
         """Check all tasks of current project"""
@@ -558,20 +494,6 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         """Toggle all current project's tasks state"""
         self.get_current_child().check_all_tasks(
             self.get_project_name(), "Toggle")
-
-    def accel_new_task(self, *args):
-        """Define action to perform on keyboard shortcut,
-        here Ctrl + n launches task creation in active page list"""
-        self.toggle_visibility(self.buttons[0], self.sidebar)
-        self.t.task_entry.grab_focus()
-
-    def accel_edit_mode_on(self, *args):
-        """On keyboard shortcut, toggle switch state,
-        this will activate edit mode"""
-        if self.switch_edit.get_active() == False:
-            self.switch_edit.set_active(True)
-        else:
-            self.switch_edit.set_active(False)
 
     def show_about_dialog(self, *args):
         """Show the about dialog, astonishing isn't it ?"""
@@ -633,7 +555,8 @@ class ToDoListBox(Gtk.Box):
         self.current_filter_language = None
 
         # Create a treeview from tasks list :
-        self.view = Gtk.TreeView(model=self.store)
+        self.view = Gtk.TreeView(model=self.store,
+                                enable_tree_lines=True)
 
         # Create "task done" check box :
         renderer_check = Gtk.CellRendererToggle()
@@ -724,12 +647,6 @@ class ToDoListBox(Gtk.Box):
         else:
             return 0
 
-    def on_move_task_to_list(self, task):
-        """Insert moved task into selected store"""
-        # TODO : les enfants sont perdus lors du déplacement
-        #~ self.store.insert_with_values(None, -1, [0, 1, 2], task)
-        self.tree_loader(task)
-        
     def tree_loader(self, tree):
         """Load the tree, insert parent values in a row then 
         append its children if any"""
@@ -815,14 +732,11 @@ class ToDoListBox(Gtk.Box):
     def on_save_list(self, project_name):
         """Save list in a project named file,
         tasks are written row by row in file, line by line"""
-        # TODO :  fix dumper arg 'path' in case of saving list
         with open(share_dir + "/" + project_name, 'w') as file_out:
-            json_tree_object = []
             for row in self.store:
-                json_tree_object.append(self.tree_dumper(self.store))
-            json.dump(json_tree_object, file_out, indent=4)
+                json.dump(self.tree_dumper(self.store), file_out, indent=4)
 
-    def tree_dumper(self, treemodel, path):
+    def tree_dumper(self, treemodel, path=0):
         tree = []
         treeiter = treemodel.get_iter(path)
         parent = treemodel.get_value(treeiter, 1)
@@ -834,7 +748,6 @@ class ToDoListBox(Gtk.Box):
         parent_list.append(pstate_list)
         children_list = []
         j = 0
-        # TODO : use iter_depth pour gérer récursivement les sous-tâches
         while j < treemodel.iter_n_children(treeiter):
             children_dict = {}
             child = treemodel.iter_nth_child(treeiter, j)
@@ -842,9 +755,7 @@ class ToDoListBox(Gtk.Box):
                             treemodel.get_value(child, 1)
             children_list.append(children_dict)
             j += 1
-        print(children_list)
         parent_list.append(children_list)
-        print(parent_list)
         parentd = { parent : parent_list }
         tree.append(parentd)
         return tree
@@ -875,7 +786,7 @@ class ToDoListBox(Gtk.Box):
         except UnboundLocalError:
             return False
 
-    def on_row_delete(self, update_percent):
+    def on_row_delete(self):
         """Select line and remove it"""
         try:
             # Get selected row coordinates
@@ -887,7 +798,6 @@ class ToDoListBox(Gtk.Box):
                 iter = self.store.get_iter(path)
             # And remove it :
             self.store.remove(iter)
-            update_percent()
         except UnboundLocalError:
             return False
 
@@ -925,8 +835,6 @@ class NewTaskWin(Gtk.Grid):
         self.task_entry.set_text("Nouvel élément")
         # Make inputbox editable :
         self.task_entry.set_property("editable", True)
-        # Allow <Entrée> button to launch action :
-        self.task_entry.connect("activate", self.on_create_task)
         box.attach(self.task_entry, 1, 0, 2, 1)
         # Create due date label :
         label2 = Gtk.Label("Échéance")
@@ -941,10 +849,6 @@ class NewTaskWin(Gtk.Grid):
         # Allow <double click> button to select date :
         self.calendar.connect("day-selected-double-click", self.get_cal_date,
                                                         self.calendar)
-        # Also offer a button to select date :                                                            
-        cal_action_butt = Gtk.Button.new_with_label("Définir la date")
-        cal_action_butt.connect("clicked", self.get_cal_date, self.calendar)
-        box.attach(cal_action_butt, 0, 3, 3, 1)
         
         # Create the task as subtask of selected row ?
         self.checkbox_create_subtask = Gtk.CheckButton.new_with_label(
@@ -1025,6 +929,7 @@ class Application(Gtk.Application):
 
         self.window = None
         self.show_menubar = True
+
 
     def do_startup(self):
         Gtk.Application.do_startup(self)

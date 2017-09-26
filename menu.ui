@@ -1,14 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <interface>
   <menu id="app-menu">
-    <section>
-      <item>
-        <attribute name="action">win.project_dialog</attribute>
-        <attribute name="label">Nouveau projet</attribute>
-        <attribute name="label" translatable="yes">_Nouveau projet</attribute>
-      </item>
-    </section>
-    <section>
+     <section>
       <item>
         <attribute name="action">app.about</attribute>
         <attribute name="label" translatable="yes">_À propos</attribute>
