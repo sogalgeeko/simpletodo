@@ -24,77 +24,80 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         self.set_titlebar(headerb)
 
         # Box receiving project management buttons :
-        navbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        Gtk.StyleContext.add_class(navbox.get_style_context(), "linked")
+        projects_nav_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        Gtk.StyleContext.add_class(
+            projects_nav_box.get_style_context(), "linked")
 
-        prjbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        Gtk.StyleContext.add_class(prjbox.get_style_context(), "linked")
+        projects_mgt_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        Gtk.StyleContext.add_class(
+            projects_mgt_box.get_style_context(), "linked")
 
         prevb = Gtk.Button()
         prevb.add(Gtk.Arrow(Gtk.ArrowType.LEFT, Gtk.ShadowType.NONE))
         prevb.connect("clicked", self.on_page_prev)
-        navbox.add(prevb)
+        projects_nav_box.add(prevb)
 
         nextb = Gtk.Button()
         nextb.add(Gtk.Arrow(Gtk.ArrowType.RIGHT, Gtk.ShadowType.NONE))
         nextb.connect("clicked", self.on_page_next)
-        navbox.add(nextb)
+        projects_nav_box.add(nextb)
 
         # Empty label, will receive percentage done later :
         self.percent_label = Gtk.Label()
         self.percent_label.set_margin_start(5)
-        navbox.add(self.percent_label)
+        projects_nav_box.add(self.percent_label)
 
         # Project add/suppr buttons :
-        newtab = Gtk.Button()
+        new_project_button = Gtk.Button()
         img = Gtk.Image.new_from_icon_name("list-add-symbolic",
                                            Gtk.IconSize.MENU)
-        newtab.set_image(img)
-        prjbox.add(newtab)
+        new_project_button.set_image(img)
+        projects_mgt_box.add(new_project_button)
         # Popover for new project creation dialog :
-        self.newtab_popover = Gtk.Popover()
-        self.newtab_popover.set_relative_to(headerb)
-       # Create main container:
-        newproject_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, 
-                                        spacing=5, border_width=5)
-        newproject_box.set_size_request(240, -1)
-        self.newtab_popover.add(newproject_box)
+        self.new_project_popover = Gtk.Popover()
+        self.new_project_popover.set_relative_to(headerb)
+        # Create main container:
+        new_project_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL,
+                                  spacing=5, border_width=5)
+        new_project_box.set_size_request(240, -1)
+        self.new_project_popover.add(new_project_box)
         # Create input box :
-        self.newproject_entry = Gtk.Entry()
-        self.newproject_entry.set_text("Nouvel élément")
+        self.new_project_entry = Gtk.Entry()
+        self.new_project_entry.set_text("Nouvel élément")
         # Make inputbox editable :
-        self.newproject_entry.set_property("editable", True)
+        self.new_project_entry.set_property("editable", True)
         # Allow <Entrée> button to launch action :
-        self.newproject_entry.connect("activate", self.on_project_new,)
-        newproject_box.pack_start(self.newproject_entry, True, True, 0)
+        self.new_project_entry.connect("activate", self.on_project_new,)
+        new_project_box.pack_start(self.new_project_entry, True, True, 0)
         # This button launch the project creation function :
-        self.newproject_create_button = Gtk.Button("Créer")
-        self.newproject_create_button.connect("clicked", self.on_project_new)
-        newproject_box.pack_start(self.newproject_create_button, True, True, 1)
-        # Connect newtab button to "show popover" function :
-        newtab.connect("clicked", self.on_visible_toggle, 
-                                        self.newtab_popover,
-                                        self.newproject_entry)
+        self.new_project_create_button = Gtk.Button("Créer")
+        self.new_project_create_button.connect("clicked", self.on_project_new)
+        new_project_box.pack_start(
+            self.new_project_create_button, True, True, 1)
+        # Connect new_project_button button to "show popover" function :
+        new_project_button.connect("clicked", self.on_visible_toggle,
+                                   self.new_project_popover,
+                                   self.new_project_entry)
         # Tab removal button :
-        deltab = Gtk.Button()
+        delete_project_button = Gtk.Button()
         img = Gtk.Image.new_from_icon_name("list-remove-symbolic",
                                            Gtk.IconSize.MENU)
-        deltab.set_image(img)
-        deltab.connect("clicked", self.on_project_delete)
-        prjbox.add(deltab)
+        delete_project_button.set_image(img)
+        delete_project_button.connect("clicked", self.on_project_delete)
+        projects_mgt_box.add(delete_project_button)
 
         # Advanced project mgt actions in a menu :
-        self.prj_menu = Gtk.Button()
-        prj_menu_img = Gtk.Image.new_from_icon_name("open-menu-symbolic",
-                                                    Gtk.IconSize.BUTTON)
-        self.prj_menu.add(prj_menu_img)
-        prjbox.add(self.prj_menu)
+        self.main_menu = Gtk.Button()
+        img = Gtk.Image.new_from_icon_name("open-menu-symbolic",
+                                           Gtk.IconSize.BUTTON)
+        self.main_menu.add(img)
+        projects_mgt_box.add(self.main_menu)
 
         # Define popover :
-        self.menu_popover = Gtk.PopoverMenu()
-        self.menu_popover.set_modal(True)
+        self.main_menu_popover = Gtk.PopoverMenu()
+        self.main_menu_popover.set_modal(True)
         # Make it relative to "menu" button :
-        self.menu_popover.set_relative_to(self.prj_menu)
+        self.main_menu_popover.set_relative_to(self.main_menu)
         # Create a box that will go inside the popover :
         popover_box = Gtk.Box(border_width=5)
         popover_box.set_spacing(5)
@@ -102,9 +105,9 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
 
         # Put all necessary buttons in the box :
         # Create a box for renaming widgets :
-        rename_popover_box = Gtk.Grid(border_width=5, 
-                                        row_spacing = 5,
-                                        column_spacing=5)
+        rename_popover_box = Gtk.Grid(border_width=5,
+                                      row_spacing=5,
+                                      column_spacing=5)
         # Add "go back" widget :
         go_back0 = Gtk.ModelButton()
         go_back0.props.text = "Retour"
@@ -113,10 +116,10 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         go_back0.props.menu_name = "main"
         rename_popover_box.attach(go_back0, 0, 0, 2, 1)
         # Add it renaming widgets :
-        self.rename_prj_entry = Gtk.Entry()
+        self.new_prj_name_entry = Gtk.Entry()
         rename_button = Gtk.Button.new_with_label("Ok")
         rename_button.connect("clicked", self.on_project_rename)
-        rename_popover_box.attach(self.rename_prj_entry, 0, 1, 1, 1)
+        rename_popover_box.attach(self.new_prj_name_entry, 0, 1, 1, 1)
         rename_popover_box.attach(rename_button, 1, 1, 1, 1)
         # Add button in the parent popover :
         rename_to_button = Gtk.ModelButton()
@@ -126,11 +129,11 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         rename_to_button.set_relief(2)
         rename_to_button.props.centered = False
         popover_box.add(rename_to_button)
-      
+
         # Define box to be shown in slided popover :
-        clone_name_box = Gtk.Grid(border_width=5, 
-                                        row_spacing = 5,
-                                        column_spacing=5)
+        clone_name_box = Gtk.Grid(border_width=5,
+                                  row_spacing=5,
+                                  column_spacing=5)
         # Add "go back" widget :
         go_back1 = Gtk.ModelButton()
         go_back1.props.text = "Retour"
@@ -145,7 +148,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         clone_name_button.connect("clicked", self.on_project_clone)
         clone_name_box.attach(self.clone_name_entry, 0, 1, 1, 1)
         clone_name_box.attach(clone_name_button, 1, 1, 1, 1)
-        
+
         # Add button that will show submenu :
         clone_to_button = Gtk.ModelButton.new()
         # And set the name of the widget it will slides to :
@@ -155,18 +158,20 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         clone_to_button.set_relief(2)
         clone_to_button.props.centered = False
         popover_box.add(clone_to_button)
-        
+
         # Add the clone and renaming box to the popover, not directly but... :
-        self.menu_popover.add(clone_name_box)
-        self.menu_popover.add(rename_popover_box)
+        self.main_menu_popover.add(clone_name_box)
+        self.main_menu_popover.add(rename_popover_box)
         # ... in a submenu :
-        self.menu_popover.child_set_property(clone_name_box, "submenu", "clone_name_box")
-        self.menu_popover.child_set_property(rename_popover_box, "submenu", "rename_popover_box")
-        
+        self.main_menu_popover.child_set_property(
+            clone_name_box, "submenu", "clone_name_box")
+        self.main_menu_popover.child_set_property(
+            rename_popover_box, "submenu", "rename_popover_box")
+
         # Add other buttons :
         for button_label, action in zip(("Enregistrer",
-                             "À propos"), (self.on_save_all,
-                                            AboutDialog)):
+                                         "À propos"), (self.on_save_all,
+                                                       AboutDialog)):
             b = Gtk.ModelButton.new()
             b.props.text = str(button_label)
             b.set_relief(2)
@@ -175,22 +180,22 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
             popover_box.add(b)
 
         # Add the box inside the popover :
-        self.menu_popover.add(popover_box)
-        self.prj_menu.connect("clicked", self.on_visible_toggle,
-                                            self.menu_popover,
-                                            None)
+        self.main_menu_popover.add(popover_box)
+        self.main_menu.connect("clicked", self.on_visible_toggle,
+                               self.main_menu_popover,
+                               None)
 
-        headerb.pack_start(navbox)
-        headerb.pack_end(prjbox)
+        headerb.pack_start(projects_nav_box)
+        headerb.pack_end(projects_mgt_box)
 
         # Main container for tabbed widget (notebook) :
         self.main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         self.add(self.main_box)
-        
+
         # Add horizontal container for sidebar revealer and notebook :
         self.overlay = Gtk.Overlay()
         self.main_box.add(self.overlay)
-        
+
         # Create notebook from class :
         self.tnotebook = TaskNoteBook(self.update_percent_on_check)
         self.tnotebook.set_hexpand(True)
@@ -212,47 +217,47 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         self.sidebar.set_halign(Gtk.Align.START)
         sidebar_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         sidebar_box.override_background_color(0, Gdk.RGBA(
-                                red=0.1, green=0.1, blue=0.1, alpha=0.9))
+            red=0.1, green=0.1, blue=0.1, alpha=0.9))
         self.sidebar.add(sidebar_box)
-        self.t = NewTaskWin()
-        self.t.set_vexpand(True)
+        self.new_task_dialog = NewTaskWin()
+        self.new_task_dialog.set_vexpand(True)
         # This button trigger the task creation process :
         self.new_task_button = Gtk.Button(label="Créer",
-                                            margin_left=5,
-                                            margin_right=5,
-                                            margin_bottom=5)
+                                          margin_left=5,
+                                          margin_right=5,
+                                          margin_bottom=5)
         self.new_task_button.connect("clicked", self.launch_task_creation)
-        sidebar_box.add(self.t)
+        sidebar_box.add(self.new_task_dialog)
         sidebar_box.add(self.new_task_button)
         self.overlay.add_overlay(self.sidebar)
-        
+
         # Below notebook, add tasks management buttons box :
         self.buttons_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL,
-                                    margin_left=5,
-                                    margin_bottom=5,
-                                    margin_right=5,
-                                    spacing=5)
+                                   margin_left=5,
+                                   margin_bottom=5,
+                                   margin_right=5,
+                                   spacing=5)
         self.main_box.add(self.buttons_box)
 
         # Create tasks mgt menu:
-        tasks_menu_button = Gtk.Button()
+        tasks_check_menu_button = Gtk.Button()
         tasks_menu_icon = Gtk.Image.new_from_icon_name("view-more-symbolic",
                                                        Gtk.IconSize.BUTTON)
-        tasks_menu_button.add(tasks_menu_icon)
-        self.buttons_box.pack_start(tasks_menu_button, False, True, 0)
+        tasks_check_menu_button.add(tasks_menu_icon)
+        self.buttons_box.pack_start(tasks_check_menu_button, False, True, 0)
 
         # Define popover :
-        self.tasks_menu_popover = Gtk.Popover()
+        self.tasks_check_menu_popover = Gtk.Popover()
         # Make it relative to "menu" button :
-        self.tasks_menu_popover.set_relative_to(tasks_menu_button)
+        self.tasks_check_menu_popover.set_relative_to(tasks_check_menu_button)
         # Create a box that will go inside the popover :
         popover_box = Gtk.Box(border_width=5)
         popover_box.set_spacing(5)
         popover_box.set_orientation(Gtk.Orientation.VERTICAL)
         # Put all necessary buttons in the box :
         for button_label, state in zip(("Cocher tous", "Décocher tous",
-                                         "Inverser tous"),
-                                        (True, False, "Toggle")):
+                                        "Inverser tous"),
+                                       (True, False, "Toggle")):
             b = Gtk.ModelButton.new()
             b.props.text = str(button_label)
             b.set_relief(2)
@@ -260,54 +265,53 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
             b.connect("clicked", self.launch_tasks_check_all, state)
             popover_box.add(b)
         # Add the box inside the popover :
-        self.tasks_menu_popover.add(popover_box)
-        tasks_menu_button.connect("clicked",
-                                  self.on_visible_toggle,
-                                  self.tasks_menu_popover, None)
+        self.tasks_check_menu_popover.add(popover_box)
+        tasks_check_menu_button.connect("clicked",
+                                        self.on_visible_toggle,
+                                        self.tasks_check_menu_popover, None)
 
         # Create tasks management buttons :
-        self.buttons = []
+        self.task_mgt_buttons = []
         for i, icon in enumerate(["list-add-symbolic",
                                   "list-remove-symbolic",
                                   "go-up-symbolic",
                                   "go-down-symbolic"]):
             img = Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.BUTTON)
             button = Gtk.Button()
-            self.buttons.append(button)
-            self.buttons[i].set_image(img)
+            self.task_mgt_buttons.append(button)
+            self.task_mgt_buttons[i].set_image(img)
             # Connect them all to an action define later by on_sel_action :
             button.connect("clicked", self.on_sel_action)
-
-        # Pack check_all/uncheck_all buttons on the left :
-        for i, button in enumerate(self.buttons):
-            self.buttons_box.pack_start(self.buttons[i], False, True, 0)
-
+            self.buttons_box.pack_start(
+                self.task_mgt_buttons[i], False, True, 0)
 
         # Create ComboxBox of target to move selected task to :
         projects_list_button = Gtk.Button.new_with_label("Déplacer vers")
         projects_list_button.set_margin_start(5)
         # Define popover for projects list (task move) :
-        self.prj_popover = Gtk.Popover()
-        self.prj_popover.set_relative_to(projects_list_button)
+        self.projects_list_popover = Gtk.Popover()
+        self.projects_list_popover.set_relative_to(projects_list_button)
         self.projects_list_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         for project_name in os.listdir(share_dir):
-            rbx = Gtk.ToggleButton(project_name, relief=Gtk.ReliefStyle.NONE,
-                                    halign=Gtk.Align.START)
-            rbx.connect("toggled", self.launch_task_move, project_name)
-            self.projects_list_box.add(rbx)
-        self.prj_popover.add(self.projects_list_box)
+            tb = Gtk.ToggleButton(project_name, relief=Gtk.ReliefStyle.NONE,
+                                  halign=Gtk.Align.START)
+            tb.connect("toggled", self.launch_task_move, project_name)
+            self.projects_list_box.add(tb)
+        self.projects_list_popover.add(self.projects_list_box)
         self.buttons_box.pack_end(projects_list_button, False, True, 0)
         projects_list_button.connect("clicked",
-                                        self.on_visible_toggle,
-                                        self.prj_popover,
-                                        self.projects_list_box)
+                                     self.on_visible_toggle,
+                                     self.projects_list_popover,
+                                     self.projects_list_box)
 
         # Add tooltips to buttons that use icon :
-        tasks_menu_button.set_tooltip_text("Gérer les tâches")
-        self.buttons[0].set_tooltip_text("Nouvelle tâche")
-        self.buttons[1].set_tooltip_text("Supprimer la tâche")
-        self.buttons[2].set_tooltip_text("Déplacer la tâche vers le haut")
-        self.buttons[3].set_tooltip_text("Déplacer la tâche vers le bas")
+        tasks_check_menu_button.set_tooltip_text("Gérer les tâches")
+        self.task_mgt_buttons[0].set_tooltip_text("Nouvelle tâche")
+        self.task_mgt_buttons[1].set_tooltip_text("Supprimer la tâche")
+        self.task_mgt_buttons[2].set_tooltip_text(
+            "Déplacer la tâche vers le haut")
+        self.task_mgt_buttons[3].set_tooltip_text(
+            "Déplacer la tâche vers le bas")
 
         # Keyboard shortcuts :
         accel = Gtk.AccelGroup()
@@ -316,8 +320,6 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
                       Gtk.AccelFlags.VISIBLE,
                       self.on_sidebar_toggle)
         self.add_accel_group(accel)
-        
-
 
     def get_project_name(self):
         """Returns the project name"""
@@ -335,9 +337,9 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         and pass it args from active instance of NewTaskWin (the one
         in sidebar)"""
         child = self.get_project_current()
-        task, date, is_subtask = self.t.get_task_props()
+        task, date, is_subtask = self.new_task_dialog.get_task_props()
         child.on_task_create(task, date, is_subtask)
-        self.on_visible_toggle(self.buttons[0], self.sidebar, None)
+        self.on_visible_toggle(self.task_mgt_buttons[0], self.sidebar, None)
 
     def launch_task_move(self, widget, target_name):
         """Move the selected task by moving its content
@@ -354,13 +356,12 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
                         self.tnotebook.set_current_page(page_index)
                         self.get_project_current().tree_loader(task_content)
                         widget.set_active(False)
-                        
 
     def launch_tasks_check_all(self, widget, new_state):
         print(locals())
         """Check all tasks of current project"""
         self.get_project_current().on_tasks_check_all(new_state)
-        
+
     def on_page_next(self, tnotebook):
         """Switch to next tab"""
         self.tnotebook.next_page()
@@ -372,11 +373,10 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
     def on_project_new(self, widget):
         """Create a new page from TodoListBox class,
         name is set from project creation dialog"""
-        text = self.newproject_entry.get_text()
+        text = self.new_project_entry.get_text()
         newpage = ToDoListBox(self.update_percent_on_check)
         self.tnotebook.append_page(newpage, Gtk.Label(text))
         self.tnotebook.show_all()
-        #~ self.pjr_name_input.close()
         self.tnotebook.set_current_page(-1)
         # When project is created and named, create its file on disk :
         newpage.project_name = self.tnotebook.get_tab_label_text(newpage)
@@ -384,11 +384,11 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         self.tnotebook.set_tab_reorderable(newpage, True)
         # And add it to "move task" comboxbox :
         b = Gtk.ToggleButton(text, relief=Gtk.ReliefStyle.NONE,
-                                    halign=Gtk.Align.START)
+                             halign=Gtk.Align.START)
         b.connect("toggled", self.launch_task_move, text)
         self.projects_list_box.add(b)
         # Hide popover when done :
-        self.newtab_popover.hide()
+        self.new_project_popover.hide()
 
     def on_project_clone(self, widget):
         """Duplicate a project, create a new file with "-COPIE" suffix"""
@@ -407,12 +407,12 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         # And add it to "move task" comboxbox :
         self.projects_list_box.append(None, text)
         # Hide popover when done :
-        self.menu_popover.hide()
-        
+        self.main_menu_popover.hide()
+
     def on_project_delete(self, tnotebook):
         """Remove page from notebook"""
         name = self.get_project_name()
-        
+
         def update_projects_list_popover():
             for button in self.projects_list_box.get_children():
                 if button.get_label() == name:
@@ -439,12 +439,12 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
 
     def on_project_rename(self, widget):
         """Change tab label (rename project)"""
-        text = self.rename_prj_entry.get_text()
+        text = self.new_prj_name_entry.get_text()
         os.rename(share_dir + "/" + self.get_project_name(),
                   share_dir + "/" + text)
         self.tnotebook.set_tab_label_text(self.get_project_current(), text)
         # Hide popover when done :
-        self.newtab_popover.hide()
+        self.new_project_popover.hide()
 
     def on_save_all(self, *args):
         """Save current (with focus) list"""
@@ -460,22 +460,23 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         """ Launch action depending on clicked button """
         project_name = self.get_project_name()
         target = self.get_project_current()
-        if widget == self.buttons[0]:
+        if widget == self.task_mgt_buttons[0]:
             self.on_sidebar_toggle()
-        elif widget == self.buttons[1]:
+        elif widget == self.task_mgt_buttons[1]:
             target.on_row_delete()
             self.percent_label.set_text(str(target.get_percent_done()) + "%")
-        elif widget == self.buttons[2]:
+        elif widget == self.task_mgt_buttons[2]:
             target.on_task_reorder("up")
-        elif widget == self.buttons[3]:
+        elif widget == self.task_mgt_buttons[3]:
             target.on_task_reorder("down")
-            
+
     def on_sidebar_toggle(self, *args):
         """Show sidebar and give focus to task description entry"""
-        self.on_visible_toggle(self.buttons[0], self.sidebar, self.t.task_entry)
+        self.on_visible_toggle(self.task_mgt_buttons[
+                               0], self.sidebar, self.new_task_dialog.task_entry)
 
     def on_visible_toggle(self, widget, container, entry):
-        #Toggle popover
+        # Toggle popover
         if container.get_visible():
             container.hide()
         else:
@@ -501,10 +502,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
     def do_delete_event(self, event):
         """Get user confirmation before leaving"""
         # Show our message dialog :
-        d = Gtk.MessageDialog(transient_for=self,
-                              modal=True,
-                              buttons=Gtk.ButtonsType.OK_CANCEL)
-        d.props.text = "Vraiment quitter ?"
+        d = ConfirmDialog(self, "Vraiment quitter ?")
         response = d.run()
         d.destroy()
 
@@ -553,7 +551,7 @@ class ToDoListBox(Gtk.Box):
 
         # Create a treeview from tasks list :
         self.view = Gtk.TreeView(model=self.store,
-                                enable_tree_lines=True)
+                                 enable_tree_lines=True)
 
         # Create "task done" check box :
         renderer_check = Gtk.CellRendererToggle()
@@ -585,7 +583,7 @@ class ToDoListBox(Gtk.Box):
         self.column_date.set_sort_column_id(1)  # Cette colonne sera triable.
         self.column_date.set_resizable(True)
         self.view.append_column(self.column_date)
-        
+
         # By default, we can't select cells
         # (only active Selection mode allows it) :
         self.sel = self.view.get_selection()
@@ -594,7 +592,6 @@ class ToDoListBox(Gtk.Box):
         # Create a scrollable container that will receive the treeview :
         self.scrollable_treelist = Gtk.ScrolledWindow()
         self.scrollable_treelist.set_vexpand(True)
-        #~ self.scrollable_treelist.set_border_width(5)
         self.scrollable_treelist.add(self.view)
         # Add this container to the todo list box :
         self.add(self.scrollable_treelist)
@@ -730,7 +727,7 @@ class ToDoListBox(Gtk.Box):
                 self.store[i][0] = not self.store[i][0]
 
         self.callback_percent()
-        
+
     def on_tasks_save(self, project_name):
         """Save list in a project named file,
         tasks are written row by row in file, line by line"""
@@ -749,7 +746,7 @@ class ToDoListBox(Gtk.Box):
             # If it exists, load its entries into self.store :
             with open(share_dir + "/" + project_name, 'r') as f:
                 self.tree_loader(json.load(f))
- 
+
     def on_row_delete(self):
         """Select line and remove it"""
         try:
@@ -764,14 +761,14 @@ class ToDoListBox(Gtk.Box):
             self.store.remove(iter)
         except UnboundLocalError:
             return False
-                
+
     def tree_dumper(self, treemodel, path=0):
         tree = []
         treeiter = treemodel.get_iter(path)
         parent = treemodel.get_value(treeiter, 1)
         parent_list, pstate_list = [], []
-        parent_state = { "State" : treemodel.get_value(treeiter, 0)}
-        parent_date = { "Date" : treemodel.get_value(treeiter, 2)}
+        parent_state = {"State": treemodel.get_value(treeiter, 0)}
+        parent_date = {"Date": treemodel.get_value(treeiter, 2)}
         pstate_list.append(parent_state)
         pstate_list.append(parent_date)
         parent_list.append(pstate_list)
@@ -781,22 +778,22 @@ class ToDoListBox(Gtk.Box):
             children_dict = {}
             child = treemodel.iter_nth_child(treeiter, j)
             children_dict[treemodel.get_value(child, 0)] = \
-                            treemodel.get_value(child, 1)
+                treemodel.get_value(child, 1)
             children_list.append(children_dict)
             j += 1
         parent_list.append(children_list)
-        parentd = { parent : parent_list }
+        parentd = {parent: parent_list}
         tree.append(parentd)
         return tree
 
     def tree_loader(self, tree):
-        """Load the tree, insert parent values in a row then 
+        """Load the tree, insert parent values in a row then
         append its children if any"""
         for i in tree:
             for k, v in i.items():
                 state = v[0]
                 piter = self.store.append(None, [v[0][0]['State'], k,
-                                                v[0][1]['Date']])
+                                                 v[0][1]['Date']])
                 enfants = v[1]
                 for j in enfants:
                     for task in j.keys():
@@ -809,7 +806,7 @@ class NewTaskWin(Gtk.Grid):
 
     def __init__(self):
         Gtk.Grid.__init__(self)
-              
+
         # Create main container:
         box = Gtk.Grid(column_spacing=20, row_spacing=10, border_width=5)
         self.add(box)
@@ -835,13 +832,13 @@ class NewTaskWin(Gtk.Grid):
         box.attach(self.calendar, 0, 2, 3, 1)
         # Allow <double click> button to select date :
         self.calendar.connect("day-selected-double-click", self.get_cal_date,
-                                                        self.calendar)
-        
+                              self.calendar)
+
         # Create the task as subtask of selected row ?
         self.checkbox_create_subtask = Gtk.CheckButton.new_with_label(
-                                        "Créer en tant que sous-tâche")
+            "Créer en tant que sous-tâche")
         box.attach(self.checkbox_create_subtask, 0, 4, 3, 1)
-        
+
         self.show_all()
 
     def get_cal_date(self, widget, calendar):
@@ -860,24 +857,14 @@ class NewTaskWin(Gtk.Grid):
             return (task, date, is_subtask)
 
 
-class ConfirmDialog(Gtk.Dialog):
-    """A generic yes/no dialog"""
+class ConfirmDialog(Gtk.MessageDialog):
+    """A generic Ok/Cancel dialog"""
 
     def __init__(self, parent, label):
-        Gtk.Dialog.__init__(self, "Confirmation", parent, 0,
-                            (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
-                             Gtk.STOCK_OK, Gtk.ResponseType.OK))
-        self.set_transient_for(app.window)
-        self.props.modal = True
-        # Dialog box size params :
-        self.set_default_size(150, 80)
-        # Label text is set by parent calling function :
-        self.label = Gtk.Label(label)
-        box = self.get_content_area()
-        box.set_border_width(10)
-        box.add(self.label)
-
-        self.show_all()
+        Gtk.MessageDialog.__init__(self, transient_for=parent,
+                                   modal=True,
+                                   buttons=Gtk.ButtonsType.OK_CANCEL,
+                                   text=label)
 
 
 class AboutDialog(Gtk.AboutDialog):
