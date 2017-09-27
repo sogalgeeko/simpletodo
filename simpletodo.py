@@ -65,14 +65,14 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         # Make inputbox editable :
         self.newproject_entry.set_property("editable", True)
         # Allow <Entrée> button to launch action :
-        self.newproject_entry.connect("activate", self.on_new_tab,)
+        self.newproject_entry.connect("activate", self.on_project_new,)
         newproject_box.pack_start(self.newproject_entry, True, True, 0)
         # This button launch the project creation function :
         self.newproject_create_button = Gtk.Button("Créer")
-        self.newproject_create_button.connect("clicked", self.on_new_tab)
+        self.newproject_create_button.connect("clicked", self.on_project_new)
         newproject_box.pack_start(self.newproject_create_button, True, True, 1)
         # Connect newtab button to "show popover" function :
-        newtab.connect("clicked", self.toggle_visibility, 
+        newtab.connect("clicked", self.on_visible_toggle, 
                                         self.newtab_popover,
                                         self.newproject_entry)
         # Tab removal button :
@@ -80,7 +80,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         img = Gtk.Image.new_from_icon_name("list-remove-symbolic",
                                            Gtk.IconSize.MENU)
         deltab.set_image(img)
-        deltab.connect("clicked", self.on_del_project)
+        deltab.connect("clicked", self.on_project_delete)
         prjbox.add(deltab)
 
         # Advanced project mgt actions in a menu :
@@ -92,6 +92,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
 
         # Define popover :
         self.menu_popover = Gtk.PopoverMenu()
+        self.menu_popover.set_modal(True)
         # Make it relative to "menu" button :
         self.menu_popover.set_relative_to(self.prj_menu)
         # Create a box that will go inside the popover :
@@ -114,7 +115,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         # Add it renaming widgets :
         self.rename_prj_entry = Gtk.Entry()
         rename_button = Gtk.Button.new_with_label("Ok")
-        rename_button.connect("clicked", self.on_rename_project)
+        rename_button.connect("clicked", self.on_project_rename)
         rename_popover_box.attach(self.rename_prj_entry, 0, 1, 1, 1)
         rename_popover_box.attach(rename_button, 1, 1, 1, 1)
         # Add button in the parent popover :
@@ -141,7 +142,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         self.clone_name_entry = Gtk.Entry()
         self.clone_name_entry.set_text("Nom du projet cloné")
         clone_name_button = Gtk.Button.new_with_label("Ok")
-        clone_name_button.connect("clicked", self.on_clone_project)
+        clone_name_button.connect("clicked", self.on_project_clone)
         clone_name_box.attach(self.clone_name_entry, 0, 1, 1, 1)
         clone_name_box.attach(clone_name_button, 1, 1, 1, 1)
         
@@ -164,8 +165,8 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         
         # Add other buttons :
         for button_label, action in zip(("Enregistrer",
-                             "À propos"), (self.on_save_notebook,
-                                            self.show_about_dialog)):
+                             "À propos"), (self.on_save_all,
+                                            AboutDialog)):
             b = Gtk.ModelButton.new()
             b.props.text = str(button_label)
             b.set_relief(2)
@@ -175,7 +176,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
 
         # Add the box inside the popover :
         self.menu_popover.add(popover_box)
-        self.prj_menu.connect("clicked", self.toggle_visibility,
+        self.prj_menu.connect("clicked", self.on_visible_toggle,
                                             self.menu_popover,
                                             None)
 
@@ -249,22 +250,20 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         popover_box.set_spacing(5)
         popover_box.set_orientation(Gtk.Orientation.VERTICAL)
         # Put all necessary buttons in the box :
-        for button_label, action in zip(("Cocher tous", "Décocher tous",
+        for button_label, state in zip(("Cocher tous", "Décocher tous",
                                          "Inverser tous"),
-                                        (self.on_tasks_check_all,
-                                            self.on_tasks_uncheck_all,
-                                         self.on_tasks_toggle_all)):
+                                        (True, False, "Toggle")):
             b = Gtk.ModelButton.new()
             b.props.text = str(button_label)
             b.set_relief(2)
             b.props.centered = False
-            b.connect("clicked", action)
+            b.connect("clicked", self.launch_tasks_check_all, state)
             popover_box.add(b)
         # Add the box inside the popover :
         self.tasks_menu_popover.add(popover_box)
         tasks_menu_button.connect("clicked",
-                                  self.toggle_visibility,
-                                  self.tasks_menu_popover)
+                                  self.on_visible_toggle,
+                                  self.tasks_menu_popover, None)
 
         # Create tasks management buttons :
         self.buttons = []
@@ -283,16 +282,25 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         for i, button in enumerate(self.buttons):
             self.buttons_box.pack_start(self.buttons[i], False, True, 0)
 
+
         # Create ComboxBox of target to move selected task to :
-        label = Gtk.Label("Déplacer vers")
-        label.set_margin_start(5)
-        label.set_margin_end(5)
-        self.projects_cbox = Gtk.ComboBoxText()
+        projects_list_button = Gtk.Button.new_with_label("Déplacer vers")
+        projects_list_button.set_margin_start(5)
+        # Define popover for projects list (task move) :
+        self.prj_popover = Gtk.Popover()
+        self.prj_popover.set_relative_to(projects_list_button)
+        self.projects_list_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         for project_name in os.listdir(share_dir):
-            self.projects_cbox.append_text(project_name)
-        self.projects_cbox.connect("changed", self.launch_task_move)
-        self.buttons_box.pack_end(self.projects_cbox, False, True, 0)
-        self.buttons_box.pack_end(label, False, True, 0)
+            rbx = Gtk.ToggleButton(project_name, relief=Gtk.ReliefStyle.NONE,
+                                    halign=Gtk.Align.START)
+            rbx.connect("toggled", self.launch_task_move, project_name)
+            self.projects_list_box.add(rbx)
+        self.prj_popover.add(self.projects_list_box)
+        self.buttons_box.pack_end(projects_list_button, False, True, 0)
+        projects_list_button.connect("clicked",
+                                        self.on_visible_toggle,
+                                        self.prj_popover,
+                                        self.projects_list_box)
 
         # Add tooltips to buttons that use icon :
         tasks_menu_button.set_tooltip_text("Gérer les tâches")
@@ -306,18 +314,10 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         accel.connect(Gdk.keyval_from_name('n'),
                       Gdk.ModifierType.CONTROL_MASK,
                       Gtk.AccelFlags.VISIBLE,
-                      self.show_sidebar)
+                      self.on_sidebar_toggle)
         self.add_accel_group(accel)
         
 
-    def toggle_visibility(self, widget, container, entry):
-        #Toggle popover
-        if container.get_visible():
-            container.hide()
-        else:
-            container.show_all()
-            if entry:
-                entry.grab_focus()
 
     def get_project_name(self):
         """Returns the project name"""
@@ -325,26 +325,42 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         child = self.tnotebook.get_nth_page(page_index)
         return str(self.tnotebook.get_tab_label_text(child))
 
-    def get_current_child(self):
+    def get_project_current(self):
         """ Returns the current todolist """
         page_index = self.tnotebook.get_current_page()
         return self.tnotebook.get_nth_page(page_index)
 
-    def update_percent_on_change(self, *args):
-        """Calculate percentage of done tasks
-        based on presence of 'True' in child's store"""
-        target_child = locals()['args'][2]
-        percent_done = self.tnotebook.get_nth_page(
-            target_child).get_percent_done()
-        self.percent_label.set_text(str(percent_done) + "%")
+    def launch_task_creation(self, widget):
+        """Get active instance of ToDoListBox from self.tnotebook
+        and pass it args from active instance of NewTaskWin (the one
+        in sidebar)"""
+        child = self.get_project_current()
+        task, date, is_subtask = self.t.get_task_props()
+        child.on_task_create(task, date, is_subtask)
+        self.on_visible_toggle(self.buttons[0], self.sidebar, None)
 
-    def update_percent_on_check(self):
-        tasks_total = self.get_current_child().get_tasks_amount()
-        if tasks_total != 0:
-            tasks_done = self.get_current_child().get_tasks_done()
-            percent_done = int(tasks_done * 100 / tasks_total)
-            self.percent_label.set_text(str(percent_done) + "%")
+    def launch_task_move(self, widget, target_name):
+        """Move the selected task by moving its content
+        to target then removing it"""
+        if widget.get_active():
+            task_content = self.get_project_current().get_selected_task()
+            if task_content:
+                self.get_project_current().on_row_delete()
+                self.update_percent_on_check()
+                for child in self.tnotebook:
+                    project_name = self.tnotebook.get_tab_label_text(child)
+                    page_index = self.tnotebook.page_num(child)
+                    if project_name == target_name:
+                        self.tnotebook.set_current_page(page_index)
+                        self.get_project_current().tree_loader(task_content)
+                        widget.set_active(False)
+                        
 
+    def launch_tasks_check_all(self, widget, new_state):
+        print(locals())
+        """Check all tasks of current project"""
+        self.get_project_current().on_tasks_check_all(new_state)
+        
     def on_page_next(self, tnotebook):
         """Switch to next tab"""
         self.tnotebook.next_page()
@@ -353,7 +369,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         """Switch to previous tab"""
         self.tnotebook.prev_page()
 
-    def on_new_tab(self, widget):
+    def on_project_new(self, widget):
         """Create a new page from TodoListBox class,
         name is set from project creation dialog"""
         text = self.newproject_entry.get_text()
@@ -364,140 +380,123 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         self.tnotebook.set_current_page(-1)
         # When project is created and named, create its file on disk :
         newpage.project_name = self.tnotebook.get_tab_label_text(newpage)
-        newpage.on_save_list(newpage.project_name)
+        newpage.on_tasks_save(newpage.project_name)
         self.tnotebook.set_tab_reorderable(newpage, True)
         # And add it to "move task" comboxbox :
-        self.projects_cbox.append(None, text)
+        b = Gtk.ToggleButton(text, relief=Gtk.ReliefStyle.NONE,
+                                    halign=Gtk.Align.START)
+        b.connect("toggled", self.launch_task_move, text)
+        self.projects_list_box.add(b)
         # Hide popover when done :
         self.newtab_popover.hide()
 
-    def on_clone_project(self, widget):
+    def on_project_clone(self, widget):
         """Duplicate a project, create a new file with "-COPIE" suffix"""
         text = self.clone_name_entry.get_text()
         newpage = ToDoListBox(self.update_percent_on_check)
         current_project = self.get_project_name()
-        self.get_current_child().on_save_list(current_project)
+        self.get_project_current().on_tasks_save(current_project)
         self.tnotebook.append_page(newpage, Gtk.Label(text))
         self.tnotebook.show_all()
         self.tnotebook.set_current_page(-1)
-        self.get_current_child().on_startup_file_load(current_project)
+        self.get_project_current().on_tasks_load_from_file(current_project)
         # When project is created and named, create its file on disk :
         newpage.project_name = self.tnotebook.get_tab_label_text(newpage)
-        newpage.on_save_list(newpage.project_name)
+        newpage.on_tasks_save(newpage.project_name)
         self.tnotebook.set_tab_reorderable(newpage, True)
         # And add it to "move task" comboxbox :
-        self.projects_cbox.append(None, text)
+        self.projects_list_box.append(None, text)
         # Hide popover when done :
         self.menu_popover.hide()
-
-    def on_rename_project(self, widget):
-        """Change tab label (rename project)"""
-        text = self.rename_prj_entry.get_text()
-        os.rename(share_dir + "/" + self.get_project_name(),
-                  share_dir + "/" + text)
-        self.tnotebook.set_tab_label_text(self.get_current_child(), text)
-        # Hide popover when done :
-        self.newtab_popover.hide()
-
-    def on_save_notebook(self, *args):
-        """Save current (with focus) list"""
-        current_page = self.tnotebook.get_current_page()
-        i = 0
-        for child in self.tnotebook:
-            self.tnotebook.set_current_page(i)
-            child.on_save_list(self.get_project_name())
-            i += 1
-        self.tnotebook.set_current_page(current_page)
-
-    def on_del_project(self, tnotebook):
+        
+    def on_project_delete(self, tnotebook):
         """Remove page from notebook"""
-
-        def update_projects_cbox():
-            self.projects_cbox.remove_all()
-            for project_name in os.listdir(share_dir):
-                self.projects_cbox.append_text(project_name)
+        name = self.get_project_name()
+        
+        def update_projects_list_popover():
+            for button in self.projects_list_box.get_children():
+                if button.get_label() == name:
+                    self.projects_list_box.remove(button)
 
         dialog = ConfirmDialog(self, "Supprimer le projet « " +
-                               self.get_project_name() + " » ?")
+                               name + " » ?")
         response = dialog.run()
         if response == Gtk.ResponseType.OK:
             # Remove project file from disk :
-            os.remove(share_dir + "/" + self.get_project_name())
+            os.remove(share_dir + "/" + name)
             self.tnotebook.remove_page(self.tnotebook.get_current_page())
-            update_projects_cbox()
+            update_projects_list_popover()
             if len(os.listdir(share_dir)) == 0:
                 self.tnotebook.page1 = ToDoListBox(
                     self.update_percent_on_check)
                 self.tnotebook.append_page(self.tnotebook.page1, Gtk.Label(
                     'Nouveau projet'))
-                self.tnotebook.page1.on_save_list('Nouveau projet')
+                self.tnotebook.page1.on_tasks_save('Nouveau projet')
                 self.tnotebook.show_all()
             dialog.destroy()
         else:
             dialog.destroy()
 
+    def on_project_rename(self, widget):
+        """Change tab label (rename project)"""
+        text = self.rename_prj_entry.get_text()
+        os.rename(share_dir + "/" + self.get_project_name(),
+                  share_dir + "/" + text)
+        self.tnotebook.set_tab_label_text(self.get_project_current(), text)
+        # Hide popover when done :
+        self.newtab_popover.hide()
+
+    def on_save_all(self, *args):
+        """Save current (with focus) list"""
+        current_page = self.tnotebook.get_current_page()
+        i = 0
+        for child in self.tnotebook:
+            self.tnotebook.set_current_page(i)
+            child.on_tasks_save(self.get_project_name())
+            i += 1
+        self.tnotebook.set_current_page(current_page)
+
     def on_sel_action(self, widget):
         """ Launch action depending on clicked button """
         project_name = self.get_project_name()
-        target = self.get_current_child()
+        target = self.get_project_current()
         if widget == self.buttons[0]:
-            self.show_sidebar()
+            self.on_sidebar_toggle()
         elif widget == self.buttons[1]:
             target.on_row_delete()
             self.percent_label.set_text(str(target.get_percent_done()) + "%")
         elif widget == self.buttons[2]:
-            target.on_task_up()
+            target.on_task_reorder("up")
         elif widget == self.buttons[3]:
-            target.on_task_down()
+            target.on_task_reorder("down")
             
-    def show_sidebar(self, *args):
+    def on_sidebar_toggle(self, *args):
         """Show sidebar and give focus to task description entry"""
-        self.toggle_visibility(self.buttons[0], self.sidebar, self.t.task_entry)
-        #~ self.t.task_entry.grab_focus()
+        self.on_visible_toggle(self.buttons[0], self.sidebar, self.t.task_entry)
 
-    def launch_task_creation(self, widget):
-        """Get active instance of ToDoListBox from self.tnotebook
-        and pass it args from active instance of NewTaskWin (the one
-        in sidebar)"""
-        child = self.get_current_child()
-        task, date, is_subtask = self.t.on_create_task()
-        child.on_create_new(task, date, is_subtask)
-        self.toggle_visibility(self.buttons[0], self.sidebar)
+    def on_visible_toggle(self, widget, container, entry):
+        #Toggle popover
+        if container.get_visible():
+            container.hide()
+        else:
+            container.show_all()
+            if entry:
+                entry.grab_focus()
 
-    def launch_task_move(self, *args):
-        """Move the selected task by moving its content
-        to target then removing it"""
-        task_content = self.get_current_child().get_selected_task()
-        if task_content:
-            #~ self.get_current_child().on_row_delete()
-            self.update_percent_on_check()
-            for child in self.tnotebook:
-                project_name = self.tnotebook.get_tab_label_text(child)
-                page_index = self.tnotebook.page_num(child)
-                if project_name == self.projects_cbox.get_active_text():
-                    self.tnotebook.set_current_page(page_index)
-                    self.get_current_child().tree_loader(task_content)
-        # Unset active entry :
-        self.projects_cbox.set_active(-1)
+    def update_percent_on_change(self, *args):
+        """Calculate percentage of done tasks
+        based on presence of 'True' in child's store"""
+        target_child = locals()['args'][2]
+        percent_done = self.tnotebook.get_nth_page(
+            target_child).get_percent_done()
+        self.percent_label.set_text(str(percent_done) + "%")
 
-    def on_tasks_check_all(self, *args):
-        """Check all tasks of current project"""
-        self.get_current_child().check_all_tasks(
-            self.get_project_name(), True)
-
-    def on_tasks_uncheck_all(self, *args):
-        """Uncheck all tasks of current project"""
-        self.get_current_child().check_all_tasks(
-            self.get_project_name(), False)
-
-    def on_tasks_toggle_all(self, *args):
-        """Toggle all current project's tasks state"""
-        self.get_current_child().check_all_tasks(
-            self.get_project_name(), "Toggle")
-
-    def show_about_dialog(self, *args):
-        """Show the about dialog, astonishing isn't it ?"""
-        AboutDialog()
+    def update_percent_on_check(self):
+        tasks_total = self.get_project_current().get_tasks_count()
+        if tasks_total != 0:
+            tasks_done = self.get_project_current().get_tasks_done()
+            percent_done = int(tasks_done * 100 / tasks_total)
+            self.percent_label.set_text(str(percent_done) + "%")
 
     def do_delete_event(self, event):
         """Get user confirmation before leaving"""
@@ -511,7 +510,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
 
         # We only terminate when the user presses the OK button :
         if response == Gtk.ResponseType.OK:
-            self.on_save_notebook()
+            self.on_save_all()
             return False
         # Otherwise we keep the application open :
         return True
@@ -529,14 +528,14 @@ class TaskNoteBook(Gtk.Notebook):
         if len(os.listdir(share_dir)) == 0:
             self.page1 = ToDoListBox(callback)
             self.append_page(self.page1, Gtk.Label('Nouveau projet'))
-            self.page1.on_save_list('Nouveau projet')
+            self.page1.on_tasks_save('Nouveau projet')
         else:
             # Otherwise load project files in newly created pages :
             for file in os.listdir(share_dir):
                 self.newpage = ToDoListBox(callback)
                 self.append_page(self.newpage, Gtk.Label(file))
                 self.show_all()
-                self.newpage.on_startup_file_load(file)
+                self.newpage.on_tasks_load_from_file(file)
                 self.next_page()
                 self.set_tab_reorderable(self.newpage, True)
 
@@ -550,8 +549,6 @@ class ToDoListBox(Gtk.Box):
         self.callback_percent = callback
         # Create tasks list and declare its future content :
         self.store = Gtk.TreeStore(bool, str, str)
-        #~ for tache in tdlist:
-            #~ self.store.append([False, tache, date, time])
         self.current_filter_language = None
 
         # Create a treeview from tasks list :
@@ -605,9 +602,9 @@ class ToDoListBox(Gtk.Box):
 
     def get_selected_iter(self):
         """Get the iter in the selected row and return it"""
-        siter = self.view.get_selection()
-        model, paths = siter.get_selected_rows()
-        for path in paths:
+        selection = self.view.get_selection()
+        (model, pathlist) = selection.get_selected_rows()
+        for path in pathlist:
             treeiter = model.get_iter(path)
         return treeiter
 
@@ -620,7 +617,7 @@ class ToDoListBox(Gtk.Box):
         except UnboundLocalError:
             return False
 
-    def get_tasks_amount(self):
+    def get_tasks_count(self):
         """Returns the number of tasks in project"""
         c = 0
         for row in self.store:
@@ -638,7 +635,7 @@ class ToDoListBox(Gtk.Box):
 
     def get_percent_done(self):
         """Returns the percentage of completed tasks"""
-        tasks = self.get_tasks_amount()
+        tasks = self.get_tasks_count()
         if tasks != 0:
             done = self.get_tasks_done()
             percent_done = int(done * 100 / tasks)
@@ -646,31 +643,6 @@ class ToDoListBox(Gtk.Box):
             return percent_done
         else:
             return 0
-
-    def tree_loader(self, tree):
-        """Load the tree, insert parent values in a row then 
-        append its children if any"""
-        for i in tree:
-            for k, v in i.items():
-                state = v[0]
-                piter = self.store.append(None, [v[0][0]['State'], k,
-                                                v[0][1]['Date']])
-                enfants = v[1]
-                for j in enfants:
-                    for task in j.keys():
-                        self.store.append(piter, [task, j[task], ""])
-
-    def on_startup_file_load(self, project_name):
-        """On app launch, load project file and format entries"""
-        if not os.path.exists(share_dir):
-            os.makedirs(share_dir, mode=0o775)
-        # If file is empty, there's no need to load it :
-        if os.path.getsize(share_dir + "/" + project_name) == 0:
-            pass
-        else:
-            # If it exists, load its entries into self.store :
-            with open(share_dir + "/" + project_name, 'r') as f:
-                self.tree_loader(json.load(f))
 
     def on_task_check(self, widget, path):
         """What to do when checkbox is un/activated"""
@@ -711,7 +683,41 @@ class ToDoListBox(Gtk.Box):
             self.store[piter][0] = all_selected
         self.callback_percent()
 
-    def check_all_tasks(self, project_name, new_state):
+    def on_task_create(self, text, date, is_subtask):
+        """Append task at the end of ListStore, if it is a subtask
+        append it to the selected iter as long as it is not a subtask
+        itself. In which case, append it to its parent"""
+        if not is_subtask:
+            self.store.append(None, [False, text, date])
+        else:
+            parent = self.get_selected_iter()
+            if self.store.iter_depth(parent) == 0:
+                self.store.append(parent, [False, text, date])
+            else:
+                parent = self.store.iter_parent(parent)
+                self.store.append(parent, [False, text, date])
+
+    def on_task_edit(self, widget, path, text):
+        """What to do when cell (task) is edited"""
+        self.store[path][1] = text
+
+    def on_task_reorder(self, direction):
+        """Move selected task up"""
+        try:
+            selection = self.view.get_selection()
+            self.store, paths = selection.get_selected_rows()
+            # Get selected task treeiter :
+            for path in paths:
+                iter = self.store.get_iter(path)
+            # And move it :
+            if direction == "up":
+                self.store.move_before(iter, self.store.iter_previous(iter))
+            elif direction == "down":
+                self.store.move_after(iter, self.store.iter_next(iter))
+        except UnboundLocalError:
+            return False
+
+    def on_tasks_check_all(self, new_state):
         """Change task state according to variable"""
         for i, row in enumerate(self.store):
             (current_state, task, date) = row
@@ -724,18 +730,41 @@ class ToDoListBox(Gtk.Box):
                 self.store[i][0] = not self.store[i][0]
 
         self.callback_percent()
-
-    def on_task_edit(self, widget, path, text):
-        """What to do when cell (task) is edited"""
-        self.store[path][1] = text
-
-    def on_save_list(self, project_name):
+        
+    def on_tasks_save(self, project_name):
         """Save list in a project named file,
         tasks are written row by row in file, line by line"""
         with open(share_dir + "/" + project_name, 'w') as file_out:
             for row in self.store:
                 json.dump(self.tree_dumper(self.store), file_out, indent=4)
 
+    def on_tasks_load_from_file(self, project_name):
+        """On app launch, load project file and format entries"""
+        if not os.path.exists(share_dir):
+            os.makedirs(share_dir, mode=0o775)
+        # If file is empty, there's no need to load it :
+        if os.path.getsize(share_dir + "/" + project_name) == 0:
+            pass
+        else:
+            # If it exists, load its entries into self.store :
+            with open(share_dir + "/" + project_name, 'r') as f:
+                self.tree_loader(json.load(f))
+ 
+    def on_row_delete(self):
+        """Select line and remove it"""
+        try:
+            # Get selected row coordinates
+            # (as a tuple(ListStore, "row path")) :
+            selection = self.view.get_selection()
+            self.store, paths = selection.get_selected_rows()
+            # Get selected task (row) treeiter :
+            for path in paths:
+                iter = self.store.get_iter(path)
+            # And remove it :
+            self.store.remove(iter)
+        except UnboundLocalError:
+            return False
+                
     def tree_dumper(self, treemodel, path=0):
         tree = []
         treeiter = treemodel.get_iter(path)
@@ -760,60 +789,18 @@ class ToDoListBox(Gtk.Box):
         tree.append(parentd)
         return tree
 
-    def on_task_up(self):
-        """Move selected task up"""
-        try:
-            selection = self.view.get_selection()
-            self.store, paths = selection.get_selected_rows()
-            # Get selected task treeiter :
-            for path in paths:
-                iter = self.store.get_iter(path)
-            # And move it before the previous iter :
-            self.store.move_before(iter, self.store.iter_previous(iter))
-        except UnboundLocalError:
-            return False
-
-    def on_task_down(self):
-        """Move selected task up"""
-        try:
-            selection = self.view.get_selection()
-            self.store, paths = selection.get_selected_rows()
-            # Get selected task treeiter :
-            for path in paths:
-                iter = self.store.get_iter(path)
-            # And move it after the next iter :
-            self.store.move_after(iter, self.store.iter_next(iter))
-        except UnboundLocalError:
-            return False
-
-    def on_row_delete(self):
-        """Select line and remove it"""
-        try:
-            # Get selected row coordinates
-            # (as a tuple(ListStore, "row path")) :
-            selection = self.view.get_selection()
-            self.store, paths = selection.get_selected_rows()
-            # Get selected task (row) treeiter :
-            for path in paths:
-                iter = self.store.get_iter(path)
-            # And remove it :
-            self.store.remove(iter)
-        except UnboundLocalError:
-            return False
-
-    def on_create_new(self, text, date, is_subtask):
-        """Append task at the end of ListStore, if it is a subtask
-        append it to the selected iter as long as it is not a subtask
-        itself. In which case, append it to its parent"""
-        if not is_subtask:
-            self.store.append(None, [False, text, date])
-        else:
-            parent = self.get_selected_iter()
-            if self.store.iter_depth(parent) == 0:
-                self.store.append(parent, [False, text, date])
-            else:
-                parent = self.store.iter_parent(parent)
-                self.store.append(parent, [False, text, date])
+    def tree_loader(self, tree):
+        """Load the tree, insert parent values in a row then 
+        append its children if any"""
+        for i in tree:
+            for k, v in i.items():
+                state = v[0]
+                piter = self.store.append(None, [v[0][0]['State'], k,
+                                                v[0][1]['Date']])
+                enfants = v[1]
+                for j in enfants:
+                    for task in j.keys():
+                        self.store.append(piter, [task, j[task], ""])
 
 
 class NewTaskWin(Gtk.Grid):
@@ -863,7 +850,7 @@ class NewTaskWin(Gtk.Grid):
         date = str(day) + "/" + str(month) + "/" + str(year)
         self.cal_entry.set_text(date)
 
-    def on_create_task(self):
+    def get_task_props(self):
         """Send entry text to parent class object (here : HeaderBarWindow)
         callback function"""
         if self.task_entry.get_text() != "":
@@ -896,7 +883,7 @@ class ConfirmDialog(Gtk.Dialog):
 class AboutDialog(Gtk.AboutDialog):
     """Dialog showing tips and info about the app"""
 
-    def __init__(self):
+    def __init__(self, *args):
         super().__init__(self)
         self.set_icon_name("simpletodo")
         logo = GdkPixbuf.Pixbuf.new_from_file("simpletodo-96px.png")
@@ -930,12 +917,11 @@ class Application(Gtk.Application):
         self.window = None
         self.show_menubar = True
 
-
     def do_startup(self):
         Gtk.Application.do_startup(self)
 
         action = Gio.SimpleAction.new("about", None)
-        action.connect("activate", self.on_about)
+        action.connect("activate", AboutDialog)
         self.add_action(action)
 
         action = Gio.SimpleAction.new("quit", None)
@@ -955,16 +941,11 @@ class Application(Gtk.Application):
         self.window.show_all()
         self.window.sidebar.hide()
 
-    def on_about(self, action, param):
-        about_dialog = AboutDialog()
-        about_dialog.present()
-
     def on_quit(self, action, param):
-        self.window.on_save_notebook()
+        self.window.on_save_all()
         self.quit()
 
 
-tdlist = []
 share_dir = os.path.expanduser('~/.local/share/simpletodo')
 if not os.path.isdir(share_dir):
     os.mkdir(share_dir)
