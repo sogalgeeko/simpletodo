@@ -62,10 +62,10 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         self.new_project_entry = Gtk.Entry()
         self.new_project_entry.set_text("Nouvel élément")
         self.new_project_entry.set_property("editable", True)
-        self.new_project_entry.connect("activate", self.on_project_new,)
+        self.new_project_entry.connect("activate", self.on_project_new_or_clone)
         new_project_box.pack_start(self.new_project_entry, True, True, 0)
         self.new_project_create_button = Gtk.Button("Créer")
-        self.new_project_create_button.connect("clicked", self.on_project_new)
+        self.new_project_create_button.connect("clicked", self.on_project_new_or_clone)
         new_project_box.pack_start(
             self.new_project_create_button, True, True, 1)
         new_project_button.connect("clicked", self.on_visible_toggle,
@@ -135,10 +135,10 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         # Added cloning widgets :
         self.clone_name_entry = Gtk.Entry()
         self.clone_name_entry.set_text("Nom du projet cloné")
-        clone_name_button = Gtk.Button.new_with_label("Ok")
-        clone_name_button.connect("clicked", self.on_project_clone)
+        self.clone_name_button = Gtk.Button.new_with_label("Ok")
+        self.clone_name_button.connect("clicked", self.on_project_new_or_clone)
         clone_name_box.attach(self.clone_name_entry, 0, 1, 1, 1)
-        clone_name_box.attach(clone_name_button, 1, 1, 1, 1)
+        clone_name_box.attach(self.clone_name_button, 1, 1, 1, 1)
         # Add button that will show submenu :
         clone_to_button = Gtk.ModelButton.new()
         # And set the name of the widget it will slides to :
@@ -158,8 +158,10 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
             rename_popover_box, "submenu", "rename_popover_box")
         # Add other buttons :
         for button_label, action in zip(("Enregistrer",
-                                         "À propos"), (self.on_save_all,
-                                                       AboutDialog)):
+                                         "À propos",
+                                         "Quitter"), (self.on_save_all,
+                                                       AboutDialog,
+                                                       app.on_quit)):
             b = Gtk.ModelButton.new()
             b.props.text = str(button_label)
             b.set_relief(2)
@@ -344,6 +346,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
                         self.tnotebook.set_current_page(page_index)
                         self.current_todolist.tree_loader(task_content)
                         widget.set_active(False)
+        self.projects_list_popover.hide()
 
     def launch_tasks_check_all(self, widget, new_state):
         """Change "checked" stated of all tasks of current project"""
@@ -356,10 +359,19 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         else:
             self.tnotebook.prev_page()
 
-    def on_project_new(self, widget):
-        """Create a new page from TodoListBox class,
-        name is set from project creation dialog"""
-        text = self.new_project_entry.get_text()
+    def on_project_new_or_clone(self, widget):
+        """This function can be used to create a new page from TodoListBox class,
+        name is set from project creation dialog, or create a clone of current
+        project"""
+        text = ""
+        print(widget, type(widget))
+        if widget == self.clone_name_button:
+            current_project = self.get_project_name()
+            text = self.clone_name_entry.get_text()
+            self.get_project_current().on_tasks_save(current_project)
+            self.get_project_current().on_tasks_load_from_file(current_project)
+        else:
+            text = self.new_project_entry.get_text()
         newpage = ToDoListBox(self.update_percent_on_check)
         self.tnotebook.append_page(newpage, Gtk.Label(text))
         self.tnotebook.show_all()
@@ -375,25 +387,6 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         self.projects_list_box.add(b)
         # Hide popover when done :
         self.new_project_popover.hide()
-# TODO : refactor code shared between on_project_new and on_project_clone
-    def on_project_clone(self, widget):
-        """Duplicate a project, create a new file with the clone name"""
-        text = self.clone_name_entry.get_text()
-        newpage = ToDoListBox(self.update_percent_on_check)
-        current_project = self.get_project_name()
-        self.get_project_current().on_tasks_save(current_project)
-        self.tnotebook.append_page(newpage, Gtk.Label(text))
-        self.tnotebook.show_all()
-        self.tnotebook.set_current_page(-1)
-        self.get_project_current().on_tasks_load_from_file(current_project)
-        # When project is created and named, create its file on disk :
-        newpage.project_name = self.tnotebook.get_tab_label_text(newpage)
-        newpage.on_tasks_save(newpage.project_name)
-        self.tnotebook.set_tab_reorderable(newpage, True)
-        # And add it to "move task" comboxbox :
-        self.projects_list_box.append(None, text)
-        # Hide popover when done :
-        self.main_menu_popover.hide()
 
     def on_project_delete(self, tnotebook):
         """Remove page from notebook"""
@@ -433,7 +426,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
                     button.set_label(new_name)
         # Then rename project file on disk and change tab label :
         os.rename(share_dir + "/" + self.get_project_name(),
-                  share_dir + "/" + text)
+                  share_dir + "/" + new_name)
         self.tnotebook.set_tab_label_text(self.get_project_current(), new_name)
         # Hide popover when done :
         self.new_project_popover.hide()
@@ -481,7 +474,6 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
     def update_percent_on_change(self, *args):
         """Calculate percentage of done tasks
         based on presence of 'True' in child's store"""
-# TODO : corriger la gestion de ce '*args'
         target_child = locals()['args'][2]
         percent_done = self.tnotebook.get_nth_page(
             target_child).get_percent_done()
@@ -494,7 +486,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
             percent_done = int(tasks_done * 100 / tasks_total)
             self.percent_label.set_text(str(percent_done) + "%")
 
-    def do_delete_event(self, event):
+    def do_delete_event(self, *args):
         """Get user confirmation before leaving"""
         # Show our message dialog :
         d = ConfirmDialog(self, "Vraiment quitter ?")
@@ -563,7 +555,7 @@ class ToDoListBox(Gtk.Box):
         # Create tasks name column...
         self.column_task = Gtk.TreeViewColumn("Description de la tâche",
                                               renderer_task, text=1)
-        self.column_task.set_sort_column_id(1)  # Cette colonne sera triable.
+        self.column_task.set_sort_column_id(1)
         self.column_task.set_expand(True)
         self.column_task.set_resizable(True)
         # ... and add it to the treeview :
@@ -571,7 +563,7 @@ class ToDoListBox(Gtk.Box):
         # Create "task due date" cells...
         renderer_date = Gtk.CellRendererText()
         self.column_date = Gtk.TreeViewColumn("Échéance", renderer_date, text=2)
-        self.column_date.set_sort_column_id(1)  # Cette colonne sera triable.
+        self.column_date.set_sort_column_id(1)
         self.column_date.set_resizable(True)
         self.view.append_column(self.column_date)
 
@@ -591,9 +583,12 @@ class ToDoListBox(Gtk.Box):
         """Get the iter in the selected row and return it"""
         selection = self.view.get_selection()
         (model, pathlist) = selection.get_selected_rows()
-        for path in pathlist:
-            treeiter = model.get_iter(path)
-        return treeiter
+        if len(pathlist) != 0:
+            for path in pathlist:
+                treeiter = model.get_iter(path)
+            return treeiter
+        else:
+            return False
 
     def get_selected_task(self):
         """Get the task selected"""
@@ -635,28 +630,26 @@ class ToDoListBox(Gtk.Box):
     def on_task_check(self, widget, path):
         """What to do when checkbox is un/activated"""
         # Toggle check box state :
-        # the boolean value of the selected row
+        # the boolean value of the selected row :
         current_value = self.store[path][0]
-        # change the boolean value of the selected row in the model
+        # change the boolean value of the selected row in the model :
         self.store[path][0] = not current_value
         # new current value!
         current_value = not current_value
-        # if length of the path is 1 (that is, if we are selecting an author)
+        # if length of the path is 1 (parent row) :
         if len(path) == 1:
-            # get the iter associated with the path
+            # get the iter associated with the path (parent task in that row) :
             piter = self.store.get_iter(path)
-            # get the iter associated with its first child
+            # get the iter associated with its first child :
             citer = self.store.iter_children(piter)
             # while there are children, change the state of their boolean value
-            # to the value of the author
+            # to the value of the parent task :
             while citer is not None:
                 self.store[citer][0] = current_value
                 citer = self.store.iter_next(citer)
-        # if the length of the path is not 1 (that is, if we are selecting a
-        # book)
+        # if the length of the path is not 1 (a parent task is selected) :
         elif len(path) != 1:
-            # get the first child of the parent of the book (the first book of
-            # the author)
+            # get the first subtask of this parent task :
             citer = self.store.get_iter(path)
             piter = self.store.iter_parent(citer)
             citer = self.store.iter_children(piter)
@@ -667,7 +660,7 @@ class ToDoListBox(Gtk.Box):
                     all_selected = False
                     break
                 citer = self.store.iter_next(citer)
-            # if they do, the author as well is selected; otherwise it is not
+            # if they do, the parent task as well is selected (completed) :
             self.store[piter][0] = all_selected
         self.callback_percent()
 
@@ -679,7 +672,9 @@ class ToDoListBox(Gtk.Box):
             self.store.append(None, [False, text, date])
         else:
             parent = self.get_selected_iter()
-            if self.store.iter_depth(parent) == 0:
+            if not parent:
+                self.store.append(None, [False, text, date])
+            elif self.store.iter_depth(parent) == 0:
                 self.store.append(parent, [False, text, date])
             else:
                 parent = self.store.iter_parent(parent)
@@ -690,7 +685,7 @@ class ToDoListBox(Gtk.Box):
         self.store[path][1] = text
 
     def on_task_reorder(self, direction):
-        """Move selected task up"""
+        """Move selected task up or down"""
         try:
             selection = self.view.get_selection()
             self.store, paths = selection.get_selected_rows()
@@ -721,7 +716,7 @@ class ToDoListBox(Gtk.Box):
 
     def on_tasks_save(self, project_name):
         """Save list in a project named file,
-        tasks are written row by row in file"""
+        tasks are written row by row in a json object then written to file"""
         with open(share_dir + "/" + project_name, 'w') as file_out:
             tree = []
             for row in self.store:
@@ -756,8 +751,7 @@ class ToDoListBox(Gtk.Box):
             return False
 
     def tree_dumper(self, treemodel, path=0):
-        # TODO : fix dumper : le problème vient de "tree = []" quand 2 tâches 
-        # sont ajoutées à la suite ça créé 2 listes.
+        # TODO : fix dumper FIXED → vérifier que c'est bien OK lors des tests
         """Dump the task content in json format :
         {task_name : [{"state":bool},{"date":str}],[{"state":subtask1_name}]}"""
         treeiter = treemodel.get_iter(path)
@@ -781,17 +775,22 @@ class ToDoListBox(Gtk.Box):
         parentd = {parent: parent_list}
 
         return parentd
-# TODO : continue code cleanup from this point
+
     def tree_loader(self, tree):
         """Load the tree, insert parent values in a row then
         append its children if any"""
         for i in tree:
+            # Load elements a the list (tree) :
             for k, v in i.items():
+                # Append 'task state', 'task description', 'task due date' :
                 state = v[0]
                 piter = self.store.append(None, [v[0][0]['State'], k,
                                                  v[0][1]['Date']])
-                enfants = v[1]
-                for j in enfants:
+                children = v[1]
+                # Load children from list (v[1]) :
+                for j in children:
+                    # For each child, append 'task state', 'task description'
+                    # to parent iter :
                     for task in j.keys():
                         self.store.append(piter, [task, j[task], ""])
 
@@ -807,13 +806,10 @@ class NewTaskWin(Gtk.Grid):
         box = Gtk.Grid(column_spacing=20, row_spacing=10, border_width=5)
         self.add(box)
 
-        # Task description label :
         label1 = Gtk.Label("Tâche")
         box.add(label1)
-        # Create input box :
         self.task_entry = Gtk.Entry()
-        self.task_entry.set_text("Nouvel élément")
-        # Make inputbox editable :
+        self.task_entry.set_text("Nouvelle tâche")
         self.task_entry.set_property("editable", True)
         box.attach(self.task_entry, 1, 0, 2, 1)
         # Create the task as subtask of selected row ?
@@ -823,27 +819,22 @@ class NewTaskWin(Gtk.Grid):
         self.checkbox_create_subtask.connect("toggled", 
                                     self.disable_calendar)
         box.attach(self.checkbox_create_subtask, 0, 4, 3, 1)
-        # Create due date label :
         label2 = Gtk.Label("Échéance")
         box.attach(label2, 0, 1, 1, 1)
-        # And due date entry (not editable) :
         self.cal_entry = Gtk.Entry()
         self.cal_entry.set_property("editable", False)
+        self.cal_entry.set_sensitive(False)
         box.attach(self.cal_entry, 1, 1, 2, 1)
         # Create a calendar to select due date by double click :
         self.calendar = Gtk.Calendar()
         box.attach(self.calendar, 0, 2, 3, 1)
-        # Allow <double click> button to select date :
         self.calendar.connect("day-selected-double-click", self.get_cal_date,
                               self.calendar)
-
 
         self.show_all()
         
     def disable_calendar(self, widget):
-        """Make calendar unsensitive if it as a subtask"""
-        # TODO : put calendar in Expander, shown by default
-        # If we create a subtask, unexpand Expander to hide calendar
+        """Make calendar unsensitive if it is a subtask"""
         if self.calendar.get_sensitive():
             self.calendar.set_sensitive(False)
         else:
@@ -862,6 +853,10 @@ class NewTaskWin(Gtk.Grid):
             task = self.task_entry.get_text()
             date = self.cal_entry.get_text()
             is_subtask = self.checkbox_create_subtask.get_active()
+            # Reset all entries (clear their content) :
+            self.task_entry.set_text("Nouvelle tâche")               
+            self.cal_entry.set_text("")
+            self.checkbox_create_subtask.set_active(False)
             return (task, date, is_subtask)
 
 
@@ -936,8 +931,8 @@ class Application(Gtk.Application):
         self.window.show_all()
         self.window.sidebar.hide()
 
-    def on_quit(self, action, param):
-        self.window.on_save_all()
+    def on_quit(self, *args):
+        self.window.do_delete_event()
         self.quit()
 
 
