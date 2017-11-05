@@ -23,7 +23,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         headerb.set_show_close_button(True)
         headerb.props.title = "Simple Todo"
         self.set_titlebar(headerb)
-        
+
         # Box receiving project management buttons :
         projects_nav_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
         Gtk.StyleContext.add_class(
@@ -45,7 +45,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         self.percent_label = Gtk.Label()
         self.percent_label.set_margin_start(5)
         projects_nav_box.add(self.percent_label)
-        
+
         # "Add project" button and popover :
         new_project_button = Gtk.Button()
         img = Gtk.Image.new_from_icon_name("list-add-symbolic",
@@ -65,13 +65,14 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         self.new_project_entry.connect("activate", self.on_project_new_or_clone)
         new_project_box.pack_start(self.new_project_entry, True, True, 0)
         self.new_project_create_button = Gtk.Button("Créer")
-        self.new_project_create_button.connect("clicked", self.on_project_new_or_clone)
+        self.new_project_create_button.connect(
+            "clicked", self.on_project_new_or_clone)
         new_project_box.pack_start(
             self.new_project_create_button, True, True, 1)
         new_project_button.connect("clicked", self.on_visible_toggle,
                                    self.new_project_popover,
                                    self.new_project_entry)
-        
+
         # "Remove project" button :
         delete_project_button = Gtk.Button()
         img = Gtk.Image.new_from_icon_name("list-remove-symbolic",
@@ -160,8 +161,8 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         for button_label, action in zip(("Enregistrer",
                                          "À propos",
                                          "Quitter"), (self.on_save_all,
-                                                       AboutDialog,
-                                                       app.on_quit)):
+                                                      AboutDialog,
+                                                      app.on_quit)):
             b = Gtk.ModelButton.new()
             b.props.text = str(button_label)
             b.set_relief(2)
@@ -177,7 +178,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         headerb.pack_start(projects_nav_box)
         headerb.pack_end(projects_mgt_box)
         # END HEADERBAR
-        
+
         # START MAIN CONTAINER
         self.main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         self.add(self.main_box)
@@ -293,7 +294,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
                                      self.projects_list_popover,
                                      self.projects_list_box)
         # END MAIN CONTAINER
-        
+
         # Add tooltips to buttons that use icon :
         tasks_check_menu_button.set_tooltip_text("Gérer les tâches")
         self.task_mgt_buttons[0].set_tooltip_text("Nouvelle tâche")
@@ -422,8 +423,8 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         new_name = self.new_prj_name_entry.get_text()
         # Rename appropriate button in projects list popover :
         for button in self.projects_list_box.get_children():
-                if button.get_label() == old_name:
-                    button.set_label(new_name)
+            if button.get_label() == old_name:
+                button.set_label(new_name)
         # Then rename project file on disk and change tab label :
         os.rename(share_dir + "/" + self.get_project_name(),
                   share_dir + "/" + new_name)
@@ -816,8 +817,8 @@ class NewTaskWin(Gtk.Grid):
         self.checkbox_create_subtask = Gtk.CheckButton.new_with_label(
             "Créer en tant que sous-tâche")
         # If we create a subtask, we don't need date (will use parent date) :
-        self.checkbox_create_subtask.connect("toggled", 
-                                    self.disable_calendar)
+        self.checkbox_create_subtask.connect("toggled",
+                                             self.disable_calendar)
         box.attach(self.checkbox_create_subtask, 0, 4, 3, 1)
         label2 = Gtk.Label("Échéance")
         box.attach(label2, 0, 1, 1, 1)
@@ -832,7 +833,7 @@ class NewTaskWin(Gtk.Grid):
                               self.calendar)
 
         self.show_all()
-        
+
     def disable_calendar(self, widget):
         """Make calendar unsensitive if it is a subtask"""
         if self.calendar.get_sensitive():
@@ -854,7 +855,7 @@ class NewTaskWin(Gtk.Grid):
             date = self.cal_entry.get_text()
             is_subtask = self.checkbox_create_subtask.get_active()
             # Reset all entries (clear their content) :
-            self.task_entry.set_text("Nouvelle tâche")               
+            self.task_entry.set_text("Nouvelle tâche")
             self.cal_entry.set_text("")
             self.checkbox_create_subtask.set_active(False)
             return (task, date, is_subtask)
@@ -868,6 +869,38 @@ class ConfirmDialog(Gtk.MessageDialog):
                                    modal=True,
                                    buttons=Gtk.ButtonsType.OK_CANCEL,
                                    text=label)
+
+
+class Prefs(Gtk.Window):
+    """Pref dialog to set save folder"""
+
+    def __init__(self, *args):
+        Gtk.Window.__init__(self)
+        self.set_application(app)
+        self.set_type_hint(1)
+        self.set_transient_for(app.window)
+        self.set_modal(True)
+        self.set_title("Choisir l'emplacement du dossier de sauvegarde")
+
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL,
+                      spacing=5, border_width=5)
+        #~ choose = Gtk.FileChooserButton.connect("clicked", self.on_folder_clicked)
+        self.choose = Gtk.FileChooserButton.new(
+            "Enregistrer les projets sous...", 2)
+        validate = Gtk.Button.new_with_label("Valider")
+        validate.connect("clicked", self.get_save_path)
+
+        box.add(self.choose)
+        box.add(validate)
+        self.add(box)
+        self.show_all()
+
+    def get_save_path(self, widget):
+        """Get choosen folder path and save it in a config file"""
+        path = self.choose.get_filename()
+        print(path)
+        with open(conf_dir + "/conf", 'w') as f:
+            f.write("save_dir=" + path)
 
 
 class AboutDialog(Gtk.AboutDialog):
@@ -910,6 +943,10 @@ class Application(Gtk.Application):
     def do_startup(self):
         Gtk.Application.do_startup(self)
 
+        action = Gio.SimpleAction.new("prefs", None)
+        action.connect("activate", Prefs)
+        self.add_action(action)
+
         action = Gio.SimpleAction.new("about", None)
         action.connect("activate", AboutDialog)
         self.add_action(action)
@@ -936,9 +973,17 @@ class Application(Gtk.Application):
         self.quit()
 
 
-share_dir = os.path.expanduser('~/.local/share/simpletodo')
-if not os.path.isdir(share_dir):
-    os.mkdir(share_dir)
+conf_dir = os.path.expanduser('~/.config/simpletodo')
+if not os.path.isdir(conf_dir):
+    os.mkdir(conf_dir)
+conf_file = os.path.expanduser('~/.config/simpletodo/conf')
+if os.path.isfile(conf_file):
+    with open(conf_file, 'r') as f:
+        share_dir = f.read().split("=")[1]
+else:
+    share_dir = os.path.expanduser('~/.local/share/simpletodo')
+    if not os.path.isdir(share_dir):
+        os.mkdir(share_dir)
 
 
 if __name__ == '__main__':

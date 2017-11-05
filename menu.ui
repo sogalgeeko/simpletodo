@@ -3,6 +3,10 @@
   <menu id="app-menu">
      <section>
       <item>
+        <attribute name="action">app.prefs</attribute>
+        <attribute name="label" translatable="yes">_Préfèrences</attribute>
+      </item>
+      <item>
         <attribute name="action">app.about</attribute>
         <attribute name="label" translatable="yes">_À propos</attribute>
       </item>
