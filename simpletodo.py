@@ -110,6 +110,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         rename_popover_box.attach(go_back0, 0, 0, 2, 1)
         # Add it renaming widgets :
         self.new_prj_name_entry = Gtk.Entry()
+        self.new_prj_name_entry.set_text("Nouveau nom du projet")
         rename_button = Gtk.Button.new_with_label("Ok")
         rename_button.connect("clicked", self.on_project_rename)
         rename_popover_box.attach(self.new_prj_name_entry, 0, 1, 1, 1)
@@ -365,7 +366,6 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         name is set from project creation dialog, or create a clone of current
         project"""
         text = ""
-        print(widget, type(widget))
         if widget == self.clone_name_button:
             current_project = self.get_project_name()
             text = self.clone_name_entry.get_text()
@@ -517,12 +517,18 @@ class TaskNoteBook(Gtk.Notebook):
         else:
             # Otherwise load project files in newly created pages :
             for file in os.listdir(share_dir):
-                newpage = ToDoListBox(callback)
-                self.append_page(newpage, Gtk.Label(file))
-                self.show_all()
-                newpage.on_tasks_load_from_file(file)
-                self.next_page()
-                self.set_tab_reorderable(newpage, True)
+                try:
+                    newpage = ToDoListBox(callback)
+                    self.append_page(newpage, Gtk.Label(file))
+                    self.show_all()
+                    newpage.on_tasks_load_from_file(file)
+                    self.next_page()
+                    self.set_tab_reorderable(newpage, True)
+                except:
+                    # If file is not a correctly formated json file,
+                    # do not load it and remove the page
+                    malformed_page = self.get_current_page()
+                    self.remove_page(malformed_page)
 
 
 class ToDoListBox(Gtk.Box):
@@ -754,7 +760,8 @@ class ToDoListBox(Gtk.Box):
     def tree_dumper(self, treemodel, path=0):
         # TODO : fix dumper FIXED → vérifier que c'est bien OK lors des tests
         """Dump the task content in json format :
-        {task_name : [{"state":bool},{"date":str}],[{"state":subtask1_name}]}"""
+        {task_name : [{"state":bool},{"date":str}],
+            [{"subtask1_name":[bool,"subtask_date"]}]}"""
         treeiter = treemodel.get_iter(path)
         parent = treemodel.get_value(treeiter, 1)
         parent_list, pstate_list = [], []
@@ -768,8 +775,8 @@ class ToDoListBox(Gtk.Box):
         while j < treemodel.iter_n_children(treeiter):
             children_dict = {}
             child = treemodel.iter_nth_child(treeiter, j)
-            children_dict[treemodel.get_value(child, 0)] = \
-                treemodel.get_value(child, 1)
+            children_dict[treemodel.get_value(child, 1)] = \
+                [treemodel.get_value(child, 0), treemodel.get_value(child, 2)]
             children_list.append(children_dict)
             j += 1
         parent_list.append(children_list)
@@ -793,7 +800,7 @@ class ToDoListBox(Gtk.Box):
                     # For each child, append 'task state', 'task description'
                     # to parent iter :
                     for task in j.keys():
-                        self.store.append(piter, [task, j[task], ""])
+                        self.store.append(piter, [j[task][0], task, j[task][1]])
 
 
 class NewTaskWin(Gtk.Grid):
@@ -817,8 +824,8 @@ class NewTaskWin(Gtk.Grid):
         self.checkbox_create_subtask = Gtk.CheckButton.new_with_label(
             "Créer en tant que sous-tâche")
         # If we create a subtask, we don't need date (will use parent date) :
-        self.checkbox_create_subtask.connect("toggled",
-                                             self.disable_calendar)
+        #~ self.checkbox_create_subtask.connect("toggled",
+                                             #~ self.disable_calendar)
         box.attach(self.checkbox_create_subtask, 0, 4, 3, 1)
         label2 = Gtk.Label("Échéance")
         box.attach(label2, 0, 1, 1, 1)
