@@ -346,7 +346,8 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
                     page_index = self.tnotebook.page_num(child)
                     if project_name == target_name:
                         self.tnotebook.set_current_page(page_index)
-                        self.current_todolist.tree_loader(task_content)
+                        new_todolist = self.get_project_current()
+                        new_todolist.tree_loader([task_content])
                         widget.set_active(False)
         self.projects_list_popover.hide()
 
