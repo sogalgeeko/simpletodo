@@ -559,7 +559,7 @@ class ToDoListBox(Gtk.Box):
         renderer_task = Gtk.CellRendererText()
         renderer_task.set_property("editable", True)
         # ... and launch 'on_task_edit' when edited :
-        renderer_task.connect("edited", self.on_task_edit)
+        renderer_task.connect("edited", self.on_task_edit, 1)
         # Create tasks name column...
         self.column_task = Gtk.TreeViewColumn("Description de la tâche",
                                               renderer_task, text=1)
@@ -570,6 +570,8 @@ class ToDoListBox(Gtk.Box):
         self.view.append_column(self.column_task)
         # Create "task due date" cells...
         renderer_date = Gtk.CellRendererText()
+        renderer_date.set_property("editable", True)
+        renderer_date.connect("edited", self.on_task_edit, 2)
         self.column_date = Gtk.TreeViewColumn("Échéance", renderer_date, text=2)
         self.column_date.set_sort_column_id(1)
         self.column_date.set_resizable(True)
@@ -688,9 +690,9 @@ class ToDoListBox(Gtk.Box):
                 parent = self.store.iter_parent(parent)
                 self.store.append(parent, [False, text, date])
 
-    def on_task_edit(self, widget, path, text):
+    def on_task_edit(self, widget, path, text, cell):
         """What to do when cell (task) is edited"""
-        self.store[path][1] = text
+        self.store[path][cell] = text
 
     def on_task_reorder(self, direction):
         """Move selected task up or down"""
@@ -852,7 +854,7 @@ class NewTaskWin(Gtk.Grid):
     def get_cal_date(self, widget, calendar):
         """Returns selected date in calendar"""
         year, month, day = calendar.get_date()
-        date = str(day) + "/" + str(month) + "/" + str(year)
+        date = str(day) + "/" + str(month+1) + "/" + str(year)
         self.cal_entry.set_text(date)
 
     def get_task_props(self):
