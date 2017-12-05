@@ -7,7 +7,7 @@ import json
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk, GdkPixbuf, Gio
-
+from datetime import datetime
 
 class HeaderBarWindow(Gtk.ApplicationWindow):
     """ Initialize window with HeaderBar """
@@ -368,10 +368,11 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         project"""
         text = ""
         if widget == self.clone_name_button:
+            clone = True
             current_project = self.get_project_name()
             text = self.clone_name_entry.get_text()
             self.get_project_current().on_tasks_save(current_project)
-            self.get_project_current().on_tasks_load_from_file(current_project)
+            self.main_menu_popover.hide()
         else:
             text = self.new_project_entry.get_text()
         newpage = ToDoListBox(self.update_percent_on_check)
@@ -387,6 +388,9 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
                              halign=Gtk.Align.START)
         b.connect("toggled", self.launch_task_move, text)
         self.projects_list_box.add(b)
+        # TODO : fix Gtk Warning
+        if clone:
+            self.get_project_current().on_tasks_load_from_file(current_project)
         # Hide popover when done :
         self.new_project_popover.hide()
 
@@ -431,7 +435,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
                   share_dir + "/" + new_name)
         self.tnotebook.set_tab_label_text(self.get_project_current(), new_name)
         # Hide popover when done :
-        self.new_project_popover.hide()
+        self.main_menu_popover.hide()
 
     def on_save_all(self, *args):
         """Iterate through todolists in notebook, for each todolist
@@ -691,8 +695,15 @@ class ToDoListBox(Gtk.Box):
                 self.store.append(parent, [False, text, date])
 
     def on_task_edit(self, widget, path, text, cell):
-        """What to do when cell (task) is edited"""
-        self.store[path][cell] = text
+        """What to do when cell (task) is edited ?
+        if cell is date, check its format (must be dd/mm/yyyy)"""
+        if cell == 2:
+                if self.validate(text):
+                    self.store[path][cell] = text
+                else:
+                    self.store[path][cell] = ""
+        else:
+            self.store[path][cell] = text
 
     def on_task_reorder(self, direction):
         """Move selected task up or down"""
@@ -715,13 +726,26 @@ class ToDoListBox(Gtk.Box):
         for i, row in enumerate(self.store):
             (current_state, task, date) = row
             iter = self.store.get_iter(i)
-            if new_state is False:
-                self.store[i][0] = False
-            elif new_state is True:
-                self.store.set(iter, 0, [new_state])
-            else:
-                self.store[i][0] = not self.store[i][0]
-
+            path = self.store.get_path(iter)
+            if not self.store.iter_has_child(iter):
+                if new_state is False:
+                    self.store[iter][0] = False
+                elif new_state is True:
+                    self.store.set(iter, 0, [new_state])
+                else:
+                    self.store[iter][0] = not self.store[iter][0]
+            elif self.store.iter_has_child(iter):
+                citer = self.store.iter_children(iter)
+                while citer is not None:
+                    if new_state == False:
+                        self.store[citer][0] = False
+                    elif new_state == True:
+                        self.store[citer][0] = True
+                    else:
+                        self.store[citer][0] = not self.store[citer][0]
+                    break
+                    citer = self.store.iter_next(citer)
+                self.on_task_check(None, path)
         self.callback_percent()
 
     def on_tasks_save(self, project_name):
@@ -761,7 +785,6 @@ class ToDoListBox(Gtk.Box):
             return False
 
     def tree_dumper(self, treemodel, path=0):
-        # TODO : fix dumper FIXED → vérifier que c'est bien OK lors des tests
         """Dump the task content in json format :
         {task_name : [{"state":bool},{"date":str}],
             [{"subtask1_name":[bool,"subtask_date"]}]}"""
@@ -804,6 +827,17 @@ class ToDoListBox(Gtk.Box):
                     # to parent iter :
                     for task in j.keys():
                         self.store.append(piter, [j[task][0], task, j[task][1]])
+                        
+    def validate(self, date):
+        try:
+            datetime.strptime(date, "%d/%m/%Y")
+            return True
+        except ValueError:
+            warn = Gtk.MessageDialog(buttons=Gtk.ButtonsType.CLOSE, text="Erreur, la date doit être au format jj/mm/aaaa")
+            warn.set_transient_for(app.window)
+            response = warn.run()
+            if response == Gtk.ResponseType.CLOSE:
+                warn.destroy()
 
 
 class NewTaskWin(Gtk.Grid):
@@ -935,7 +969,7 @@ telle que publiée par la Free Software Foundation dans sa version 3
 ou ultérieure.""")
         self.set_logo(logo)
         self.set_program_name("SimpleTodo")
-        self.set_version("1.4")
+        self.set_version("2.0b")
         self.set_website("https://git.volted.net/sogal/simpleTodo")
 
         self.show_all()
