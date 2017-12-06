@@ -311,7 +311,13 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
                       Gdk.ModifierType.CONTROL_MASK,
                       Gtk.AccelFlags.VISIBLE,
                       self.on_sidebar_toggle)
+        accel.connect(Gdk.keyval_from_name('w'),
+                      Gdk.ModifierType.CONTROL_MASK,
+                      Gtk.AccelFlags.VISIBLE,
+                      self.on_project_delete)
         self.add_accel_group(accel)
+        #~ accel2 = Gtk.AccelGroup()
+        
 
     def get_project_current(self):
         """Returns the current project"""
@@ -368,12 +374,13 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         project"""
         text = ""
         if widget == self.clone_name_button:
-            clone = True
             current_project = self.get_project_name()
+            clone = True
             text = self.clone_name_entry.get_text()
             self.get_project_current().on_tasks_save(current_project)
             self.main_menu_popover.hide()
         else:
+            clone = False
             text = self.new_project_entry.get_text()
         newpage = ToDoListBox(self.update_percent_on_check)
         self.tnotebook.append_page(newpage, Gtk.Label(text))
@@ -394,7 +401,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         # Hide popover when done :
         self.new_project_popover.hide()
 
-    def on_project_delete(self, tnotebook):
+    def on_project_delete(self, tnotebook, *args):
         """Remove page from notebook"""
         name = self.get_project_name()
 
@@ -549,6 +556,7 @@ class ToDoListBox(Gtk.Box):
         # Then create a treeview from tasks store :
         self.view = Gtk.TreeView(model=self.store,
                                  enable_tree_lines=True)
+        #~ self.set_size_request(300, 150)
 
         # Create "task done" check box :
         renderer_check = Gtk.CellRendererToggle()
@@ -588,7 +596,10 @@ class ToDoListBox(Gtk.Box):
         # Create a scrollable container that will receive the treeview :
         scrollable_treelist = Gtk.ScrolledWindow()
         scrollable_treelist.set_vexpand(True)
-        scrollable_treelist.add(self.view)
+        # Needed to fix Gtk Warnings about size allocation :
+        grid = Gtk.Grid()
+        grid.attach(self.view, 0, 0 ,1, 1)
+        scrollable_treelist.add(grid)
         # Add this container to the todo list box :
         self.add(scrollable_treelist)
         self.set_child_packing(scrollable_treelist, True, True, 0, 0)
