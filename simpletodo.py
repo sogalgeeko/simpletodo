@@ -34,12 +34,12 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
 
         prevb = Gtk.Button()
         prevb.add(Gtk.Arrow(Gtk.ArrowType.LEFT, Gtk.ShadowType.NONE))
-        prevb.connect("clicked", self.on_page_nav, "prev")
+        prevb.connect("clicked", self.on_page_nav_prev)
         projects_nav_box.add(prevb)
 
         nextb = Gtk.Button()
         nextb.add(Gtk.Arrow(Gtk.ArrowType.RIGHT, Gtk.ShadowType.NONE))
-        nextb.connect("clicked", self.on_page_nav, "next")
+        nextb.connect("clicked", self.on_page_nav_next)
         projects_nav_box.add(nextb)
         # Empty label, will receive percentage done later :
         self.percent_label = Gtk.Label()
@@ -89,7 +89,6 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         projects_mgt_box.add(self.main_menu)
         # Define popover :
         self.main_menu_popover = Gtk.PopoverMenu()
-        self.main_menu_popover.set_modal(True)
         # Make it relative to "menu" button :
         self.main_menu_popover.set_relative_to(self.main_menu)
         # Create a box that will go inside the popover :
@@ -115,6 +114,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         rename_button.connect("clicked", self.on_project_rename)
         rename_popover_box.attach(self.new_prj_name_entry, 0, 1, 1, 1)
         rename_popover_box.attach(rename_button, 1, 1, 1, 1)
+        #~ self.new_prj_name_entry.grab_focus()
         # Add button in the parent popover :
         rename_to_button = Gtk.ModelButton()
         rename_to_button.props.text = "Renommer en..."
@@ -122,6 +122,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         rename_to_button.props.menu_name = "rename_popover_box"
         rename_to_button.set_relief(2)
         rename_to_button.props.centered = False
+        rename_to_button.connect("clicked", self.entry_grab_focus, self.new_prj_name_entry)
         popover_box.add(rename_to_button)
         # Define box to be shown in slided popover :
         clone_name_box = Gtk.Grid(border_width=5,
@@ -138,11 +139,11 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         self.clone_name_entry = Gtk.Entry()
         self.clone_name_entry.set_text("Nom du projet cloné")
         self.clone_name_button = Gtk.Button.new_with_label("Ok")
-        self.clone_name_button.connect("clicked", self.on_project_new_or_clone)
         clone_name_box.attach(self.clone_name_entry, 0, 1, 1, 1)
         clone_name_box.attach(self.clone_name_button, 1, 1, 1, 1)
         # Add button that will show submenu :
         clone_to_button = Gtk.ModelButton.new()
+        clone_to_button.connect("clicked", self.entry_grab_focus, self.clone_name_entry)
         # And set the name of the widget it will slides to :
         clone_to_button.props.menu_name = "clone_name_box"
         # Set its properties :
@@ -175,6 +176,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         self.main_menu.connect("clicked", self.on_visible_toggle,
                                self.main_menu_popover,
                                None)
+        self.main_menu_popover.props.modal = True
 
         headerb.pack_start(projects_nav_box)
         headerb.pack_end(projects_mgt_box)
@@ -306,6 +308,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
             "Déplacer la tâche vers le bas")
 
         # Keyboard shortcuts :
+        # TODO : fix tab nav shortcuts
         accel = Gtk.AccelGroup()
         accel.connect(Gdk.keyval_from_name('n'),
                       Gdk.ModifierType.CONTROL_MASK,
@@ -315,9 +318,18 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
                       Gdk.ModifierType.CONTROL_MASK,
                       Gtk.AccelFlags.VISIBLE,
                       self.on_project_delete)
+        accel.connect(Gdk.keyval_from_name('Page_Down'),
+                      Gdk.ModifierType.CONTROL_MASK,
+                      Gtk.AccelFlags.VISIBLE,
+                      self.on_page_nav_next)
+        accel.connect(Gdk.keyval_from_name('Page_Up'),
+                      Gdk.ModifierType.CONTROL_MASK,
+                      Gtk.AccelFlags.VISIBLE,
+                      self.on_page_nav_prev)
         self.add_accel_group(accel)
-        #~ accel2 = Gtk.AccelGroup()
-        
+ 
+    def entry_grab_focus(self, widget, entry):
+        self.set_focus(entry)
 
     def get_project_current(self):
         """Returns the current project"""
@@ -361,12 +373,13 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         """Change "checked" stated of all tasks of current project"""
         self.get_project_current().on_tasks_check_all(new_state)
 
-    def on_page_nav(self, tnotebook, direction):
-        """Switch to tab depending on given direction"""
-        if direction == "next":
-            self.tnotebook.next_page()
-        else:
-            self.tnotebook.prev_page()
+    def on_page_nav_next(self, tnotebook, *args):
+        """Switch to next tab"""
+        self.tnotebook.next_page()
+
+    def on_page_nav_prev(self, tnotebook, *args):
+        """Switch to previous tab"""
+        self.tnotebook.prev_page()
 
     def on_project_new_or_clone(self, widget):
         """This function can be used to create a new page from TodoListBox class,
@@ -394,10 +407,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         b = Gtk.ToggleButton(text, relief=Gtk.ReliefStyle.NONE,
                              halign=Gtk.Align.START)
         b.connect("toggled", self.launch_task_move, text)
-        self.projects_list_box.add(b)
-        # TODO : fix Gtk Warning
-        if clone:
-            self.get_project_current().on_tasks_load_from_file(current_project)
+        self.get_project_current().on_tasks_load_from_file(current_project)
         # Hide popover when done :
         self.new_project_popover.hide()
 
@@ -588,6 +598,7 @@ class ToDoListBox(Gtk.Box):
         self.column_date.set_sort_column_id(1)
         self.column_date.set_resizable(True)
         self.view.append_column(self.column_date)
+        self.view.set_hexpand(True)
 
         # Allow selection by single click, double-click launches edition mode :
         self.sel = self.view.get_selection()
