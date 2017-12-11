@@ -114,7 +114,6 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         rename_button.connect("clicked", self.on_project_rename)
         rename_popover_box.attach(self.new_prj_name_entry, 0, 1, 1, 1)
         rename_popover_box.attach(rename_button, 1, 1, 1, 1)
-        #~ self.new_prj_name_entry.grab_focus()
         # Add button in the parent popover :
         rename_to_button = Gtk.ModelButton()
         rename_to_button.props.text = "Renommer en..."
@@ -139,6 +138,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         self.clone_name_entry = Gtk.Entry()
         self.clone_name_entry.set_text("Nom du projet cloné")
         self.clone_name_button = Gtk.Button.new_with_label("Ok")
+        self.clone_name_button.connect("clicked", self.on_project_new_or_clone)
         clone_name_box.attach(self.clone_name_entry, 0, 1, 1, 1)
         clone_name_box.attach(self.clone_name_button, 1, 1, 1, 1)
         # Add button that will show submenu :
@@ -308,7 +308,6 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
             "Déplacer la tâche vers le bas")
 
         # Keyboard shortcuts :
-        # TODO : fix tab nav shortcuts
         accel = Gtk.AccelGroup()
         accel.connect(Gdk.keyval_from_name('n'),
                       Gdk.ModifierType.CONTROL_MASK,
@@ -327,8 +326,9 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
                       Gtk.AccelFlags.VISIBLE,
                       self.on_page_nav_prev)
         self.add_accel_group(accel)
- 
+
     def entry_grab_focus(self, widget, entry):
+        """This is used to give focus to text entries in main_menu_popover"""
         self.set_focus(entry)
 
     def get_project_current(self):
@@ -387,8 +387,8 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         project"""
         text = ""
         if widget == self.clone_name_button:
-            current_project = self.get_project_name()
             clone = True
+            current_project = self.get_project_name()
             text = self.clone_name_entry.get_text()
             self.get_project_current().on_tasks_save(current_project)
             self.main_menu_popover.hide()
@@ -407,7 +407,8 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         b = Gtk.ToggleButton(text, relief=Gtk.ReliefStyle.NONE,
                              halign=Gtk.Align.START)
         b.connect("toggled", self.launch_task_move, text)
-        self.get_project_current().on_tasks_load_from_file(current_project)
+        if clone:
+            self.get_project_current().on_tasks_load_from_file(current_project)
         # Hide popover when done :
         self.new_project_popover.hide()
 
@@ -937,6 +938,25 @@ class ConfirmDialog(Gtk.MessageDialog):
                                    text=label)
 
 
+class Shortcuts(Gtk.ShortcutsWindow):
+    """Window displayong app shortcuts"""
+        # TODO : finish and fix shortcuts window
+    def __init__(self, *args):
+        Gtk.ShortcutsWindow.__init__(self, transient_for=app.window,
+                                     modal=True)
+        section = Gtk.ShortcutsSection(section_name="main",
+                                       title="Raccourcis principaux")
+        group = Gtk.ShortcutsGroup()
+        new_task = Gtk.ShortcutsShortcut(title="Ajouter une tâche",
+                                         accelerator="<ctl>a")
+        new_task.set_action_name="Nouvelle tâche"
+        group.add(new_task)
+        section.add(group)
+        self.add(section)
+
+        self.show_all()
+
+
 class Prefs(Gtk.Window):
     """Pref dialog to set save folder"""
 
@@ -950,7 +970,6 @@ class Prefs(Gtk.Window):
 
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL,
                       spacing=5, border_width=5)
-        #~ choose = Gtk.FileChooserButton.connect("clicked", self.on_folder_clicked)
         self.choose = Gtk.FileChooserButton.new(
             "Enregistrer les projets sous...", 2)
         validate = Gtk.Button.new_with_label("Valider")
@@ -964,9 +983,9 @@ class Prefs(Gtk.Window):
     def get_save_path(self, widget):
         """Get choosen folder path and save it in a config file"""
         path = self.choose.get_filename()
-        print(path)
         with open(conf_dir + "/conf", 'w') as f:
             f.write("save_dir=" + path)
+        self.hide()
 
 
 class AboutDialog(Gtk.AboutDialog):
@@ -1013,6 +1032,10 @@ class Application(Gtk.Application):
         action.connect("activate", Prefs)
         self.add_action(action)
 
+        action = Gio.SimpleAction.new("shortcuts", None)
+        action.connect("activate", Shortcuts)
+        self.add_action(action)
+
         action = Gio.SimpleAction.new("about", None)
         action.connect("activate", AboutDialog)
         self.add_action(action)
@@ -1045,7 +1068,14 @@ if not os.path.isdir(conf_dir):
 conf_file = os.path.expanduser('~/.config/simpletodo/conf')
 if os.path.isfile(conf_file):
     with open(conf_file, 'r') as f:
-        share_dir = f.read().split("=")[1]
+        configured_dir = f.read().split("=")[1]
+        if os.path.exists(configured_dir):
+            share_dir = configured_dir
+        else:
+            # TODO : change print in warn dialog
+            print("Erreur de configuration, vérifier le chemin \
+d'enregistrement des fichiers de projets")
+            share_dir = os.path.expanduser('~/.local/share/simpletodo')
 else:
     share_dir = os.path.expanduser('~/.local/share/simpletodo')
     if not os.path.isdir(share_dir):
