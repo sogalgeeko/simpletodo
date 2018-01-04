@@ -940,21 +940,12 @@ class ConfirmDialog(Gtk.MessageDialog):
 
 class Shortcuts(Gtk.ShortcutsWindow):
     """Window displayong app shortcuts"""
-        # TODO : finish and fix shortcuts window
     def __init__(self, *args):
-        Gtk.ShortcutsWindow.__init__(self, transient_for=app.window,
-                                     modal=True)
-        section = Gtk.ShortcutsSection(section_name="main",
-                                       title="Raccourcis principaux")
-        group = Gtk.ShortcutsGroup()
-        new_task = Gtk.ShortcutsShortcut(title="Ajouter une tâche",
-                                         accelerator="<ctl>a")
-        new_task.set_action_name="Nouvelle tâche"
-        group.add(new_task)
-        section.add(group)
-        self.add(section)
-
-        self.show_all()
+        builder = Gtk.Builder.new_from_file("shortcuts.ui")
+        window = builder.get_object("shortcuts-clocks")
+        window.set_transient_for(app.window)
+        window.set_modal(True)
+        window.show_all()
 
 
 class Prefs(Gtk.Window):
@@ -994,7 +985,7 @@ class AboutDialog(Gtk.AboutDialog):
     def __init__(self, *args):
         super().__init__(self)
         self.set_icon_name("simpletodo")
-        logo = GdkPixbuf.Pixbuf.new_from_file("simpletodo-96px.png")
+        logo = GdkPixbuf.Pixbuf.new_from_file("/usr/share/simpletodo/simpletodo-96px.png")
         self.set_transient_for(app.window)
         self.set_modal(True)
 
@@ -1044,7 +1035,7 @@ class Application(Gtk.Application):
         action.connect("activate", self.on_quit)
         self.add_action(action)
 
-        builder = Gtk.Builder.new_from_file("menu.ui")
+        builder = Gtk.Builder.new_from_file("/usr/share/simpletodo/menu.ui")
         self.set_app_menu(builder.get_object("app-menu"))
 
     def do_activate(self):
@@ -1062,27 +1053,28 @@ class Application(Gtk.Application):
         self.quit()
 
 
-conf_dir = os.path.expanduser('~/.config/simpletodo')
-if not os.path.isdir(conf_dir):
-    os.mkdir(conf_dir)
-conf_file = os.path.expanduser('~/.config/simpletodo/conf')
-if os.path.isfile(conf_file):
-    with open(conf_file, 'r') as f:
-        configured_dir = f.read().split("=")[1]
-        if os.path.exists(configured_dir):
-            share_dir = configured_dir
-        else:
-            # TODO : change print in warn dialog
-            print("Erreur de configuration, vérifier le chemin \
-d'enregistrement des fichiers de projets")
-            share_dir = os.path.expanduser('~/.local/share/simpletodo')
-else:
-    share_dir = os.path.expanduser('~/.local/share/simpletodo')
-    if not os.path.isdir(share_dir):
-        os.mkdir(share_dir)
-
-
 if __name__ == '__main__':
     # Create an app instance from the win instance :
     app = Application()
+    conf_dir = os.path.expanduser('~/.config/simpletodo')
+    if not os.path.isdir(conf_dir):
+        os.mkdir(conf_dir)
+    conf_file = os.path.expanduser('~/.config/simpletodo/conf')
+    if os.path.isfile(conf_file):
+        with open(conf_file, 'r') as f:
+            configured_dir = f.read().split("=")[1]
+            if os.path.exists(configured_dir):
+                share_dir = configured_dir
+            else:
+                dialog = Gtk.MessageDialog(None, 0, Gtk.MessageType.ERROR,
+                    Gtk.ButtonsType.CANCEL, "Erreur de configuration")
+                dialog.format_secondary_text(
+                    "Vérifier le chemin d'enregistrement des fichiers de projets")
+                dialog.run()
+                share_dir = os.path.expanduser('~/.local/share/simpletodo')
+                dialog.destroy()
+    else:
+        share_dir = os.path.expanduser('~/.local/share/simpletodo')
+        if not os.path.isdir(share_dir):
+            os.mkdir(share_dir)
     app.run()
