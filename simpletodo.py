@@ -541,12 +541,12 @@ class TaskNoteBook(Gtk.Notebook):
             # Otherwise load project files in newly created pages :
             for file in os.listdir(share_dir):
                 try:
-                    newpage = ToDoListBox(callback)
-                    self.append_page(newpage, Gtk.Label(file))
+                    self.newpage = ToDoListBox(callback)
+                    self.append_page(self.newpage, Gtk.Label(file))
+                    self.set_tab_reorderable(self.newpage, True)
                     self.show_all()
-                    newpage.on_tasks_load_from_file(file)
+                    self.newpage.on_tasks_load_from_file(file)
                     self.next_page()
-                    self.set_tab_reorderable(newpage, True)
                 except:
                     # If file is not a correctly formated json file,
                     # do not load it and remove the page
@@ -575,6 +575,7 @@ class ToDoListBox(Gtk.Box):
         # Create check boxes column...
         column_check = Gtk.TreeViewColumn("Finie", renderer_check,
                                           active=0)
+        column_check.set_sort_column_id(0)
         # ... and add it to the treeview :
         self.view.append_column(column_check)
 
@@ -596,7 +597,7 @@ class ToDoListBox(Gtk.Box):
         renderer_date.set_property("editable", True)
         renderer_date.connect("edited", self.on_task_edit, 2)
         self.column_date = Gtk.TreeViewColumn("Échéance", renderer_date, text=2)
-        self.column_date.set_sort_column_id(1)
+        self.column_date.set_sort_column_id(2)
         self.column_date.set_resizable(True)
         self.view.append_column(self.column_date)
         self.view.set_hexpand(True)
