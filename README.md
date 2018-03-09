@@ -9,8 +9,6 @@ Pour une installation rapide et basique, il suffit de récupérer le fichier *si
 
 `python3 simpletodo.py`
 
-Un RPM est également disponible auprès de l'auteur pour une installation propre pour tout le système (testé sur openSUSE et Fedora).
-
 **Utilisation :**
 
 ***Gérer les projets :***
@@ -27,13 +25,9 @@ La case à cocher devant la description de la tâches indique son état (finie /
 À chaque « coche » ou « décoche » d'une tâche, un indicateur de pourcentage accompli est mis à jour et affiché.
 
 Via le menu en bas à gauche, vous pouvez cocher, décocher ou inverser d'un clic l'état de l'ensemble des tâches de votre projet
+Vous pouvez ajouter des sous-tâches à une tâche principale. Lorsque toutes les sous-tâches sont complétées, la tâche mère l'est aussi.
 
-Pour éditer une tâche, il faut passer en mode édition (basculer l'état de l'interrupteur ou <Ctrl +e>).
-Dans ce mode vous pouvez :
-
-- double cliquer sur la tâche pour éditer sa description ;
-- cliquer une fois sur la tâche pour la sélectionner et cliquer sur « Supprimer » pour la supprimer ;
-- cliquer une fois sur la tâche pour la sélectionner puis choisir le nom d'un projet dans la liste déroulant pour la déplacer vers ce projet.
+![https://git.volted.net/sogal/simpleTodo/raw/master/tasks.png](https://git.volted.net/sogal/simpleTodo/raw/master/tasks.png)
 
 ***Raccourcis clavier***
 
