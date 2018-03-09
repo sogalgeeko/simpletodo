@@ -986,7 +986,7 @@ class AboutDialog(Gtk.AboutDialog):
     def __init__(self, *args):
         super().__init__(self)
         self.set_icon_name("simpletodo")
-        logo = GdkPixbuf.Pixbuf.new_from_file("/usr/share/simpletodo/simpletodo-96px.png")
+        logo = GdkPixbuf.Pixbuf.new_from_file("simpletodo-96px.png")
         self.set_transient_for(app.window)
         self.set_modal(True)
 
@@ -1036,7 +1036,7 @@ class Application(Gtk.Application):
         action.connect("activate", self.on_quit)
         self.add_action(action)
 
-        builder = Gtk.Builder.new_from_file("/usr/share/simpletodo/menu.ui")
+        builder = Gtk.Builder.new_from_file("menu.ui")
         self.set_app_menu(builder.get_object("app-menu"))
 
     def do_activate(self):
