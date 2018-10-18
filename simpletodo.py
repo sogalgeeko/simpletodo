@@ -7,7 +7,7 @@ import json
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk, GdkPixbuf, Gio
-from datetime import datetime
+from datetime import datetime, date
 
 class HeaderBarWindow(Gtk.ApplicationWindow):
     """ Initialize window with HeaderBar """
@@ -22,6 +22,10 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         headerb = Gtk.HeaderBar()
         headerb.set_show_close_button(True)
         headerb.props.title = "Simple Todo"
+        headerb.set_has_subtitle = True
+        d = date.today()
+        subtitle = d.strftime("%A %d. %B %Y")
+        headerb.props.subtitle = str.capitalize(subtitle)
         self.set_titlebar(headerb)
 
         # Box receiving project management buttons :
