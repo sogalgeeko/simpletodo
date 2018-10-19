@@ -900,6 +900,8 @@ class NewTaskWin(Gtk.Grid):
         box.attach(self.calendar, 0, 2, 3, 1)
         self.calendar.connect("day-selected-double-click", self.get_cal_date,
                               self.calendar)
+        # TODO: fix date selection
+        self.calendar.select_day(int(date.today().strftime("%d")))
 
         self.show_all()
 
