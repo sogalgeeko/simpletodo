@@ -289,8 +289,10 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         self.projects_list_popover = Gtk.Popover()
         self.projects_list_popover.set_relative_to(projects_list_button)
         self.projects_list_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        for project_name in os.listdir(share_dir):
-            tb = Gtk.ToggleButton(project_name, relief=Gtk.ReliefStyle.NONE,
+        # TODO: add checkof json before adding it to list
+        for project_name in all_projects:
+            tb = Gtk.ToggleButton(project_name,
+                                  relief=Gtk.ReliefStyle.NONE,
                                   halign=Gtk.Align.START)
             tb.connect("toggled", self.launch_task_move, project_name)
             self.projects_list_box.add(tb)
@@ -543,19 +545,14 @@ class TaskNoteBook(Gtk.Notebook):
             page1.on_tasks_save('Nouveau projet')
         else:
             # Otherwise load project files in newly created pages :
-            for file in os.listdir(share_dir):
-                try:
-                    self.newpage = ToDoListBox(callback)
-                    self.append_page(self.newpage, Gtk.Label(file))
-                    self.set_tab_reorderable(self.newpage, True)
-                    self.show_all()
-                    self.newpage.on_tasks_load_from_file(file)
-                    self.next_page()
-                except:
-                    # If file is not a correctly formated json file,
-                    # do not load it and remove the page
-                    malformed_page = self.get_current_page()
-                    self.remove_page(malformed_page)
+            print(all_projects)
+            for file in all_projects:
+                self.newpage = ToDoListBox(callback)
+                self.append_page(self.newpage, Gtk.Label(file))
+                self.set_tab_reorderable(self.newpage, True)
+                self.show_all()
+                self.newpage.on_tasks_load_from_file(file)
+                self.next_page()
 
 
 class ToDoListBox(Gtk.Box):
@@ -855,7 +852,7 @@ class ToDoListBox(Gtk.Box):
                     # to parent iter :
                     for task in j.keys():
                         self.store.append(piter, [j[task][0], task, j[task][1]])
-                        
+
     def validate(self, date):
         try:
             datetime.strptime(date, "%d/%m/%Y")
@@ -1065,6 +1062,7 @@ if __name__ == '__main__':
     if not os.path.isdir(conf_dir):
         os.mkdir(conf_dir)
     conf_file = os.path.expanduser('~/.config/simpletodo/conf')
+    all_projects = []
     if os.path.isfile(conf_file):
         with open(conf_file, 'r') as f:
             configured_dir = f.read().split("=")[1]
@@ -1082,4 +1080,15 @@ if __name__ == '__main__':
         share_dir = os.path.expanduser('~/.local/share/simpletodo')
         if not os.path.isdir(share_dir):
             os.mkdir(share_dir)
+    for file in os.listdir(share_dir):
+        try:
+            with open(share_dir + "/" + file, 'r') as f:
+                try:
+                    json.load(f)
+                except StopIteration:
+                    pass
+                else:
+                    all_projects.append(file)
+        except:
+            print("Warning: " + share_dir + "/" + file + " n'a pas été chargé.")
     app.run()
