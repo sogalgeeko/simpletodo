@@ -42,15 +42,6 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         Gtk.StyleContext.add_class(
             projects_mgt_box.get_style_context(), "linked")
 
-        prevb = Gtk.Button()
-        prevb.add(Gtk.Arrow(Gtk.ArrowType.LEFT, Gtk.ShadowType.NONE))
-        prevb.connect("clicked", self.on_page_nav_prev)
-        projects_nav_box.add(prevb)
-
-        nextb = Gtk.Button()
-        nextb.add(Gtk.Arrow(Gtk.ArrowType.RIGHT, Gtk.ShadowType.NONE))
-        nextb.connect("clicked", self.on_page_nav_next)
-        projects_nav_box.add(nextb)
         # Empty label, will receive percentage done later :
         self.percent_label = Gtk.Label()
         self.percent_label.set_margin_start(5)
