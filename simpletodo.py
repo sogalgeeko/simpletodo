@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+# TODO: connect Echap to "hade new task pane"
+# TODO: connect Enter to new task name entry in new task pane
+# TODO: connect Enter to text entries in project burger menu
+
 import os
 import sys
 import json
