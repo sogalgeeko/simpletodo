@@ -898,9 +898,8 @@ class NewTaskWin(Gtk.Grid):
         # Create a calendar to select due date by double click :
         self.calendar = Gtk.Calendar()
         box.attach(self.calendar, 0, 2, 3, 1)
-        self.calendar.connect("day-selected-double-click", self.get_cal_date,
+        self.calendar.connect("day-selected", self.get_cal_date,
                               self.calendar)
-        # TODO: fix date selection
         self.calendar.select_day(int(date.today().strftime("%d")))
 
         self.show_all()
