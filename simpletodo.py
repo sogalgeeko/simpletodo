@@ -4,6 +4,8 @@
 # TODO: connect Echap to "hade new task pane"
 # TODO: connect Enter to new task name entry in new task pane
 # TODO: connect Enter to text entries in project burger menu
+# TODO: implement task search functionnality accross all projects and switch to
+# project where task is found
 
 import os
 import sys
