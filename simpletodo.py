@@ -52,7 +52,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         img = Gtk.Image.new_from_icon_name("list-add-symbolic",
                                            Gtk.IconSize.MENU)
         new_project_button.set_image(img)
-        projects_mgt_box.add(new_project_button)
+        projects_nav_box.add(new_project_button)
         # Popover for new project creation dialog :
         self.new_project_popover = Gtk.Popover()
         self.new_project_popover.set_relative_to(headerb)
@@ -80,7 +80,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
                                            Gtk.IconSize.MENU)
         delete_project_button.set_image(img)
         delete_project_button.connect("clicked", self.on_project_delete)
-        projects_mgt_box.add(delete_project_button)
+        projects_nav_box.add(delete_project_button)
 
         # Other project mgt actions in a menu :
         self.main_menu = Gtk.Button()
@@ -200,6 +200,8 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         self.tnotebook.set_scrollable(True)
         self.tnotebook.connect("switch-page", self.update_percent_on_change)
         self.overlay.add(self.tnotebook)
+        # Make sure percentage label is filled at startup
+        self.tnotebook.newpage.callback_percent()
 
         # Create revealer :
         self.sidebar = Gtk.Revealer()
@@ -286,7 +288,7 @@ class HeaderBarWindow(Gtk.ApplicationWindow):
         self.projects_list_popover = Gtk.Popover()
         self.projects_list_popover.set_relative_to(projects_list_button)
         self.projects_list_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        # TODO: add checkof json before adding it to list
+
         for project_name in all_projects:
             tb = Gtk.ToggleButton(project_name,
                                   relief=Gtk.ReliefStyle.NONE,
